@@ -1,19 +1,27 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-WAV文件频谱分析专用工具
-=====================
+WAV文件声学信号综合分析工具
+========================
 
-将时域WAV信号转换为高精度频谱图
-横轴：频率（精确到0.01Hz）
-纵轴：声压级（dB）
+专业的声学信号多维度分析套件
+支持时域、频域、相位域和时频域的全面分析
 
-主要功能：
-- 高精度FFT分析
-- 声压级计算（dB）
-- 频率分辨率优化
-- 批量处理WAV文件
-- 专业频谱图绘制
+🎯 核心功能：
+- 🎵 高精度频谱分析（精确到0.01Hz）
+- 📊 声压级计算（dB SPL标准）
+- 🕐 时域波形分析
+- 📐 相位谱分析  
+- 🎶 时频谱图分析
+- 📈 四合一综合分析显示
+- 🔄 批量处理WAV文件
+- 📁 专业图表输出
+
+🔍 分析维度：
+- 时域分析：波形、RMS、峰值统计
+- 频域分析：高精度FFT、声压级转换
+- 相位分析：频率-相位关系
+- 时频分析：短时傅里叶变换谱图
 """
 
 import numpy as np
@@ -22,6 +30,7 @@ import os
 import glob
 from typing import Tuple, List, Dict, Optional
 from scipy.io import wavfile
+from scipy import signal
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -36,10 +45,20 @@ except ImportError:
 
 class SpectrumAnalyzer:
     """
-    频谱分析器类
+    声学信号综合分析器类
     
-    专门用于将WAV时域信号转换为高精度频谱图
-    支持精确到0.01Hz的频率分辨率
+    专业的声学信号多维度分析工具，支持：
+    - 时域分析：波形图、RMS、峰值统计
+    - 频域分析：高精度FFT、声压级计算（dB SPL）
+    - 相位分析：频率-相位关系图
+    - 时频分析：谱图（短时傅里叶变换）
+    - 综合分析：四合一显示所有分析结果
+    
+    特性：
+    - 频率分辨率可达0.01Hz
+    - 符合声学标准的dB SPL计算
+    - 批量处理能力
+    - 专业图表输出
     """
     
     def __init__(self, target_freq_resolution: float = 0.01):
@@ -225,6 +244,261 @@ class SpectrumAnalyzer:
         
         return frequencies, spl_db
     
+    def plot_time_domain(self, signal: np.ndarray, sample_rate: int, 
+                        max_duration: Optional[float] = None,
+                        save_path: Optional[str] = None) -> None:
+        """
+        绘制时域波形图
+        
+        Parameters
+        ----------
+        signal : np.ndarray
+            时域信号数组
+        sample_rate : int
+            采样率 (Hz)
+        max_duration : float, optional
+            最大显示时长（秒），None表示显示全部
+        save_path : str, optional
+            保存路径，None表示不保存
+        """
+        # 生成时间轴
+        time_axis = np.arange(len(signal)) / sample_rate
+        
+        # 限制显示时长
+        if max_duration is not None:
+            max_samples = int(max_duration * sample_rate)
+            if len(signal) > max_samples:
+                signal = signal[:max_samples]
+                time_axis = time_axis[:max_samples]
+        
+        plt.figure(figsize=(12, 6))
+        plt.plot(time_axis, signal, 'b-', linewidth=0.8, alpha=0.8)
+        
+        plt.xlabel('Time (s)', fontsize=12, fontfamily='Times New Roman')
+        plt.ylabel('Amplitude', fontsize=12, fontfamily='Times New Roman')
+        plt.title('Time Domain Analysis', fontsize=14, fontfamily='Times New Roman')
+        
+        plt.grid(True, alpha=0.3)
+        plt.xlim([0, time_axis[-1]])
+        
+        # 添加统计信息
+        rms_value = np.sqrt(np.mean(signal**2))
+        peak_value = np.max(np.abs(signal))
+        plt.text(0.02, 0.98, f'RMS: {rms_value:.4f}\nPeak: {peak_value:.4f}', 
+                transform=plt.gca().transAxes, fontsize=10,
+                verticalalignment='top',
+                bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8))
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            print(f"✅ 时域图已保存: {save_path}")
+        
+        plt.show()
+    
+    def analyze_phase_spectrum(self, signal: np.ndarray, sample_rate: int,
+                              window_type: str = 'hann') -> Tuple[np.ndarray, np.ndarray]:
+        """
+        分析信号的相位谱
+        
+        Parameters
+        ----------
+        signal : np.ndarray
+            时域信号
+        sample_rate : int
+            采样率 (Hz)
+        window_type : str, optional
+            窗函数类型，默认'hann'
+            
+        Returns
+        -------
+        Tuple[np.ndarray, np.ndarray]
+            频率数组(Hz)和相位数组(度)
+        """
+        # 去除直流分量
+        signal = signal - np.mean(signal)
+        
+        # 计算最优FFT长度
+        fft_length, _ = self.calculate_optimal_fft_length(len(signal), sample_rate)
+        
+        # 如果信号长度不足，进行零填充
+        if len(signal) < fft_length:
+            signal_padded = np.zeros(fft_length)
+            signal_padded[:len(signal)] = signal
+            signal = signal_padded
+        else:
+            signal = signal[:fft_length]
+        
+        # 应用窗函数
+        if window_type == 'hann':
+            window = np.hanning(len(signal))
+        elif window_type == 'hamming':
+            window = np.hamming(len(signal))
+        elif window_type == 'blackman':
+            window = np.blackman(len(signal))
+        else:
+            window = np.ones(len(signal))
+        
+        signal_windowed = signal * window
+        
+        # 计算FFT
+        fft_result = np.fft.fft(signal_windowed)
+        
+        # 只取正频率部分
+        n_positive_freqs = len(fft_result) // 2 + 1
+        fft_positive = fft_result[:n_positive_freqs]
+        
+        # 生成频率轴
+        frequencies = np.fft.fftfreq(len(fft_result), 1/sample_rate)[:n_positive_freqs]
+        
+        # 计算相位（转换为度）
+        phase_rad = np.angle(fft_positive)
+        phase_deg = phase_rad * 180 / np.pi
+        
+        return frequencies, phase_deg
+    
+    def plot_phase_spectrum(self, frequencies: np.ndarray, phase_deg: np.ndarray,
+                           freq_range: Optional[Tuple[float, float]] = None,
+                           save_path: Optional[str] = None) -> None:
+        """
+        绘制相位谱图
+        
+        Parameters
+        ----------
+        frequencies : np.ndarray
+            频率数组
+        phase_deg : np.ndarray
+            相位数组（度）
+        freq_range : Tuple[float, float], optional
+            频率显示范围 (min_freq, max_freq)
+        save_path : str, optional
+            保存路径，None表示不保存
+        """
+        plt.figure(figsize=(12, 6))
+        plt.plot(frequencies, phase_deg, 'g-', linewidth=0.8, alpha=0.8)
+        
+        plt.xlabel('Frequency (Hz)', fontsize=12, fontfamily='Times New Roman')
+        plt.ylabel('Phase (degrees)', fontsize=12, fontfamily='Times New Roman')
+        plt.title('Phase Spectrum Analysis', fontsize=14, fontfamily='Times New Roman')
+        
+        if freq_range:
+            plt.xlim(freq_range)
+        else:
+            plt.xlim([0, frequencies[-1]])
+        
+        plt.ylim([-180, 180])
+        plt.grid(True, alpha=0.3)
+        
+        # 添加相位统计信息
+        phase_std = np.std(phase_deg)
+        plt.text(0.02, 0.98, f'Phase Std: {phase_std:.2f}°', 
+                transform=plt.gca().transAxes, fontsize=10,
+                verticalalignment='top',
+                bbox=dict(boxstyle='round', facecolor='lightgreen', alpha=0.8))
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            print(f"✅ 相位谱图已保存: {save_path}")
+        
+        plt.show()
+    
+    def analyze_spectrogram(self, signal: np.ndarray, sample_rate: int,
+                           window_length: Optional[int] = None,
+                           overlap_ratio: float = 0.75) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        计算时频谱图
+        
+        Parameters
+        ----------
+        signal : np.ndarray
+            时域信号
+        sample_rate : int
+            采样率 (Hz)
+        window_length : int, optional
+            窗长度，None则自动计算
+        overlap_ratio : float, optional
+            重叠比例，默认0.75
+            
+        Returns
+        -------
+        Tuple[np.ndarray, np.ndarray, np.ndarray]
+            频率数组、时间数组、时频谱矩阵
+        """
+        # 自动计算窗长度
+        if window_length is None:
+            # 选择合适的窗长度，通常为信号长度的1/10到1/20
+            window_length = min(len(signal) // 10, int(0.1 * sample_rate))
+            # 确保是2的幂次，提高效率
+            window_length = 2 ** int(np.log2(window_length))
+        
+        # 计算重叠长度
+        overlap_length = int(window_length * overlap_ratio)
+        
+        # 使用Hamming窗
+        window = signal.windows.hamming(window_length)
+        
+        # 计算时频谱
+        frequencies, times, Sxx = signal.spectrogram(
+            signal,
+            fs=sample_rate,
+            window=window,
+            noverlap=overlap_length,
+            nfft=window_length,
+            scaling='density'
+        )
+        
+        return frequencies, times, Sxx
+    
+    def plot_spectrogram(self, frequencies: np.ndarray, times: np.ndarray, 
+                        Sxx: np.ndarray, freq_range: Optional[Tuple[float, float]] = None,
+                        save_path: Optional[str] = None) -> None:
+        """
+        绘制时频谱图
+        
+        Parameters
+        ----------
+        frequencies : np.ndarray
+            频率数组
+        times : np.ndarray
+            时间数组
+        Sxx : np.ndarray
+            时频谱矩阵
+        freq_range : Tuple[float, float], optional
+            频率显示范围 (min_freq, max_freq)
+        save_path : str, optional
+            保存路径，None表示不保存
+        """
+        plt.figure(figsize=(12, 8))
+        
+        # 转换为dB尺度
+        Sxx_db = 10 * np.log10(Sxx + 1e-12)  # 添加小值避免log(0)
+        
+        plt.pcolormesh(times, frequencies, Sxx_db, shading='auto', cmap='jet')
+        
+        plt.xlabel('Time (s)', fontsize=12, fontfamily='Times New Roman')
+        plt.ylabel('Frequency (Hz)', fontsize=12, fontfamily='Times New Roman')
+        plt.title('Time-Frequency Spectrogram', fontsize=14, fontfamily='Times New Roman')
+        
+        if freq_range:
+            plt.ylim(freq_range)
+        else:
+            plt.ylim([0, frequencies[-1]])
+        
+        # 添加颜色条
+        cbar = plt.colorbar()
+        cbar.set_label('Power Spectral Density (dB/Hz)', fontsize=11)
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            print(f"✅ 时频谱图已保存: {save_path}")
+        
+        plt.show()
+    
     def analyze_wav_file(self, wav_file_path: str, 
                         max_freq: Optional[float] = None,
                         window_type: str = 'hann') -> Dict:
@@ -285,6 +559,7 @@ class SpectrumAnalyzer:
                 'file_path': wav_file_path,
                 'filename': filename,
                 'sample_rate': sr,
+                'signal': signal,  # 添加原始信号数据
                 'signal_length': len(signal),
                 'duration': len(signal) / sr,
                 'frequencies': frequencies,
@@ -375,10 +650,179 @@ class SpectrumAnalyzer:
         
         plt.show()
     
+    def comprehensive_analysis(self, analysis_result: Dict,
+                              freq_range: Optional[Tuple[float, float]] = None,
+                              time_range: Optional[float] = None,
+                              save_prefix: Optional[str] = None) -> None:
+        """
+        执行全面的综合分析（时域+频域+相位+时频）
+        
+        Parameters
+        ----------
+        analysis_result : Dict
+            分析结果字典
+        freq_range : Tuple[float, float], optional
+            频率显示范围 (min_freq, max_freq)
+        time_range : float, optional
+            时域显示的最大时长（秒）
+        save_prefix : str, optional
+            保存文件的前缀，None表示不保存
+        """
+        if not analysis_result['success']:
+            print(f"❌ 无法进行综合分析: {analysis_result.get('error', '分析失败')}")
+            return
+        
+        signal = analysis_result['signal']
+        sr = analysis_result['sample_rate']
+        filename = analysis_result['filename']
+        frequencies = analysis_result['frequencies']
+        spl_db = analysis_result['spl_db']
+        
+        print(f"\n🔍 开始综合分析: {filename}")
+        print("-" * 60)
+        
+        # 创建综合分析图
+        fig = plt.figure(figsize=(16, 12))
+        fig.suptitle(f'Comprehensive Acoustic Analysis - {filename}', 
+                    fontsize=16, fontfamily='Times New Roman')
+        
+        # 1. 时域分析 (左上)
+        plt.subplot(2, 2, 1)
+        time_axis = np.arange(len(signal)) / sr
+        if time_range is not None:
+            max_samples = int(time_range * sr)
+            if len(signal) > max_samples:
+                signal_display = signal[:max_samples]
+                time_axis_display = time_axis[:max_samples]
+            else:
+                signal_display = signal
+                time_axis_display = time_axis
+        else:
+            signal_display = signal
+            time_axis_display = time_axis
+        
+        plt.plot(time_axis_display, signal_display, 'b-', linewidth=0.8, alpha=0.8)
+        plt.xlabel('Time (s)', fontsize=10, fontfamily='Times New Roman')
+        plt.ylabel('Amplitude', fontsize=10, fontfamily='Times New Roman')
+        plt.title('Time Domain', fontsize=12, fontfamily='Times New Roman')
+        plt.grid(True, alpha=0.3)
+        
+        # 添加时域统计
+        rms_value = np.sqrt(np.mean(signal**2))
+        peak_value = np.max(np.abs(signal))
+        plt.text(0.02, 0.98, f'RMS: {rms_value:.4f}\nPeak: {peak_value:.4f}', 
+                transform=plt.gca().transAxes, fontsize=8,
+                verticalalignment='top',
+                bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8))
+        
+        # 2. 频域分析 (右上)
+        plt.subplot(2, 2, 2)
+        if freq_range:
+            freq_mask = frequencies <= freq_range[1]
+            freq_display = frequencies[freq_mask]
+            spl_display = spl_db[freq_mask]
+        else:
+            freq_display = frequencies
+            spl_display = spl_db
+        
+        plt.plot(freq_display, spl_display, 'r-', linewidth=0.8, alpha=0.8)
+        
+        # 标记峰值
+        peak_freq = analysis_result['peak_frequency']
+        peak_spl = analysis_result['peak_spl']
+        if freq_range is None or peak_freq <= freq_range[1]:
+            plt.plot(peak_freq, peak_spl, 'ro', markersize=6, 
+                    label=f'Peak: {peak_freq:.2f} Hz')
+            plt.legend(fontsize=8)
+        
+        plt.xlabel('Frequency (Hz)', fontsize=10, fontfamily='Times New Roman')
+        plt.ylabel('SPL (dB)', fontsize=10, fontfamily='Times New Roman')
+        plt.title('Frequency Spectrum', fontsize=12, fontfamily='Times New Roman')
+        plt.grid(True, alpha=0.3)
+        
+        # 3. 相位分析 (左下)
+        plt.subplot(2, 2, 3)
+        phase_frequencies, phase_deg = self.analyze_phase_spectrum(signal, sr)
+        
+        if freq_range:
+            phase_mask = phase_frequencies <= freq_range[1]
+            phase_freq_display = phase_frequencies[phase_mask]
+            phase_display = phase_deg[phase_mask]
+        else:
+            phase_freq_display = phase_frequencies
+            phase_display = phase_deg
+        
+        plt.plot(phase_freq_display, phase_display, 'g-', linewidth=0.8, alpha=0.8)
+        plt.xlabel('Frequency (Hz)', fontsize=10, fontfamily='Times New Roman')
+        plt.ylabel('Phase (degrees)', fontsize=10, fontfamily='Times New Roman')
+        plt.title('Phase Spectrum', fontsize=12, fontfamily='Times New Roman')
+        plt.ylim([-180, 180])
+        plt.grid(True, alpha=0.3)
+        
+        # 添加相位统计
+        phase_std = np.std(phase_display)
+        plt.text(0.02, 0.98, f'Phase Std: {phase_std:.2f}°', 
+                transform=plt.gca().transAxes, fontsize=8,
+                verticalalignment='top',
+                bbox=dict(boxstyle='round', facecolor='lightgreen', alpha=0.8))
+        
+        # 4. 时频分析 (右下)
+        plt.subplot(2, 2, 4)
+        spec_freqs, spec_times, Sxx = self.analyze_spectrogram(signal, sr)
+        
+        # 转换为dB尺度
+        Sxx_db = 10 * np.log10(Sxx + 1e-12)
+        
+        plt.pcolormesh(spec_times, spec_freqs, Sxx_db, shading='auto', cmap='jet')
+        plt.xlabel('Time (s)', fontsize=10, fontfamily='Times New Roman')
+        plt.ylabel('Frequency (Hz)', fontsize=10, fontfamily='Times New Roman')
+        plt.title('Time-Frequency Spectrogram', fontsize=12, fontfamily='Times New Roman')
+        
+        if freq_range:
+            plt.ylim([0, freq_range[1]])
+        else:
+            plt.ylim([0, spec_freqs[-1]])
+        
+        # 添加小型颜色条
+        cbar = plt.colorbar()
+        cbar.set_label('PSD (dB/Hz)', fontsize=9)
+        
+        plt.tight_layout()
+        
+        # 保存综合分析图
+        if save_prefix:
+            save_path = f"{save_prefix}_comprehensive_analysis.png"
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            print(f"✅ 综合分析图已保存: {save_path}")
+        
+        plt.show()
+        
+        # 分别保存各个分析图
+        if save_prefix:
+            print(f"\n📊 生成独立分析图...")
+            
+            # 时域图
+            self.plot_time_domain(signal, sr, max_duration=time_range,
+                                 save_path=f"{save_prefix}_time_domain.png")
+            
+            # 相位图  
+            self.plot_phase_spectrum(phase_frequencies, phase_deg, 
+                                   freq_range=freq_range,
+                                   save_path=f"{save_prefix}_phase_spectrum.png")
+            
+            # 时频图
+            self.plot_spectrogram(spec_freqs, spec_times, Sxx,
+                                freq_range=freq_range,
+                                save_path=f"{save_prefix}_spectrogram.png")
+        
+        print(f"🎉 综合分析完成!")
+    
     def batch_analyze_directory(self, data_dir: str = "data", 
                                max_freq: Optional[float] = 2000,
                                plot_individual: bool = True,
-                               plot_comparison: bool = True) -> Dict[str, List[Dict]]:
+                               plot_comparison: bool = True,
+                               comprehensive_analysis: bool = False,
+                               time_range: Optional[float] = 1.0) -> Dict[str, List[Dict]]:
         """
         批量分析目录中的所有WAV文件
         
@@ -392,6 +836,10 @@ class SpectrumAnalyzer:
             是否绘制单独的频谱图
         plot_comparison : bool, optional
             是否绘制对比图
+        comprehensive_analysis : bool, optional
+            是否进行综合分析（时域+频域+相位+时频），默认False
+        time_range : float, optional
+            时域分析的显示时长（秒），默认1.0秒
             
         Returns
         -------
@@ -433,6 +881,16 @@ class SpectrumAnalyzer:
                     self.plot_spectrum(result, 
                                      freq_range=(0, max_freq),
                                      save_path=save_name)
+                
+                # 执行综合分析
+                if comprehensive_analysis and result['success']:
+                    save_prefix = f"comprehensive_{subdir}_{result['filename'][:-4]}"
+                    self.comprehensive_analysis(
+                        result,
+                        freq_range=(0, max_freq) if max_freq else None,
+                        time_range=time_range,
+                        save_prefix=save_prefix
+                    )
             
             all_results[subdir] = subdir_results
         
@@ -613,7 +1071,9 @@ def main():
         data_dir="data",
         max_freq=2000,  # 分析0-2000Hz范围
         plot_individual=True,   # 绘制单独频谱图
-        plot_comparison=True    # 绘制对比图
+        plot_comparison=True,    # 绘制对比图
+        comprehensive_analysis=False,  # 综合分析（时域+频域+相位+时频）
+        time_range=1.0  # 时域显示1秒
     )
     
     # 统计结果
@@ -629,13 +1089,78 @@ def main():
     print(f"\n📁 生成的文件:")
     print(f"   spectrum_*.png - 各文件的频谱图")
     print(f"   spectrum_comparison_analysis.png - 对比分析图")
+    print(f"   comprehensive_*.png - 综合分析图 (如果启用)")
     
     print(f"\n🔍 分析结果说明:")
     print(f"   横轴: 频率 (Hz)")
     print(f"   纵轴: 声压级 (dB SPL)")
     print(f"   频率分辨率: 0.01 Hz (目标值)")
     print(f"   参考声压: 20 μPa")
+    
+    print(f"\n✨ 新增功能:")
+    print(f"   🕐 时域分析 - 波形图和统计信息")
+    print(f"   📐 相位分析 - 频率-相位关系")
+    print(f"   🎵 时频分析 - 谱图显示时变频谱")
+    print(f"   📊 综合分析 - 四合一分析图表")
+    print(f"   💡 使用提示: 设置 comprehensive_analysis=True 启用全面分析")
+
+
+def example_comprehensive_analysis():
+    """
+    综合分析功能的使用示例
+    """
+    print("🎯 综合分析功能演示")
+    print("=" * 50)
+    
+    # 创建分析器
+    analyzer = SpectrumAnalyzer(target_freq_resolution=0.01)
+    
+    # 检查数据目录
+    if not os.path.exists("data"):
+        print("❌ 未找到data目录，无法演示")
+        return
+    
+    # 找到第一个WAV文件进行演示
+    wav_file = None
+    for root, dirs, files in os.walk("data"):
+        for file in files:
+            if file.endswith('.wav'):
+                wav_file = os.path.join(root, file)
+                break
+        if wav_file:
+            break
+    
+    if not wav_file:
+        print("❌ 未找到WAV文件进行演示")
+        return
+    
+    print(f"📁 使用文件: {os.path.basename(wav_file)}")
+    
+    # 分析单个文件
+    result = analyzer.analyze_wav_file(wav_file, max_freq=2000)
+    
+    if result['success']:
+        # 执行综合分析
+        print("\n🔍 执行综合分析...")
+        analyzer.comprehensive_analysis(
+            result,
+            freq_range=(0, 2000),  # 频率范围 0-2000Hz
+            time_range=0.5,        # 时域显示前0.5秒
+            save_prefix="demo"     # 保存文件前缀
+        )
+        
+        print("\n✅ 演示完成！")
+        print("📁 生成的文件:")
+        print("   demo_comprehensive_analysis.png - 四合一综合分析图")
+        print("   demo_time_domain.png - 时域分析图")
+        print("   demo_phase_spectrum.png - 相位谱图")
+        print("   demo_spectrogram.png - 时频谱图")
+    else:
+        print(f"❌ 分析失败: {result.get('error', '未知错误')}")
 
 
 if __name__ == "__main__":
     main()
+    
+    # 取消注释下面这行来运行综合分析演示
+    # example_comprehensive_analysis()

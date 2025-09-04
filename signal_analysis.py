@@ -154,7 +154,7 @@ class SignalAnalyzer:
         # 去直流分量
         self.signal_data = self.signal_data - np.mean(self.signal_data)
         
-    def plot_time_domain(self, figure_num: int = 1) -> None:
+    def plot_time_domain(self, figure_num: int = 1, save_path: str = None) -> None:
         """
         绘制时域图
         
@@ -162,6 +162,8 @@ class SignalAnalyzer:
         ----------
         figure_num : int, optional
             图形编号，默认为1
+        save_path : str, optional
+            保存路径，如果提供则保存图片而不显示
         """
         if self.time_data is None or self.signal_data is None:
             raise ValueError("数据未加载，请先调用load_data方法")
@@ -175,7 +177,11 @@ class SignalAnalyzer:
         plt.tick_params(labelsize=6)
         plt.tight_layout()
         
-    def plot_frequency_domain(self, figure_num: int = 2, freq_limit: float = 4000) -> None:
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            plt.close(figure_num)
+        
+    def plot_frequency_domain(self, figure_num: int = 2, freq_limit: float = 4000, save_path: str = None) -> None:
         """
         绘制频域图
         
@@ -185,6 +191,8 @@ class SignalAnalyzer:
             图形编号，默认为2
         freq_limit : float, optional
             频率显示上限，默认为4000Hz
+        save_path : str, optional
+            保存路径，如果提供则保存图片而不显示
         """
         if self.signal_data is None:
             raise ValueError("数据未加载，请先调用load_data方法")
@@ -208,7 +216,11 @@ class SignalAnalyzer:
         plt.box(True)
         plt.tight_layout()
         
-    def plot_phase_domain(self, figure_num: int = 3, freq_limit: float = 4000) -> None:
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            plt.close(figure_num)
+        
+    def plot_phase_domain(self, figure_num: int = 3, freq_limit: float = 4000, save_path: str = None) -> None:
         """
         绘制相位图
         
@@ -218,6 +230,8 @@ class SignalAnalyzer:
             图形编号，默认为3
         freq_limit : float, optional
             频率显示上限，默认为4000Hz
+        save_path : str, optional
+            保存路径，如果提供则保存图片而不显示
         """
         if self.signal_data is None:
             raise ValueError("数据未加载，请先调用load_data方法")
@@ -241,8 +255,12 @@ class SignalAnalyzer:
         plt.box(True)
         plt.tight_layout()
         
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            plt.close(figure_num)
+        
     def plot_spectrogram(self, figure_num: int = 4, freq_limit: float = 600, 
-                        nfft: int = 40000) -> None:
+                        nfft: int = 40000, save_path: str = None) -> None:
         """
         绘制时频图(谱图)
         
@@ -254,6 +272,8 @@ class SignalAnalyzer:
             频率显示上限，默认为600Hz
         nfft : int, optional
             FFT长度，默认为40000
+        save_path : str, optional
+            保存路径，如果提供则保存图片而不显示
         """
         if self.signal_data is None or self.time_data is None:
             raise ValueError("数据未加载，请先调用load_data方法")
@@ -271,15 +291,19 @@ class SignalAnalyzer:
         )
         
         plt.figure(figure_num, figsize=(5, 3))
-        plt.pcolormesh(t, f, np.abs(Sxx), shading='auto')
+        plt.pcolormesh(t, f, np.abs(Sxx), shading='auto', cmap='jet')
         plt.ylim([0, freq_limit])
         plt.ylabel('Frequency (Hz)', fontfamily='Times New Roman', fontsize=7.5)
         plt.xlabel('Time (s)', fontfamily='Times New Roman', fontsize=7.5)
         plt.tick_params(labelsize=7.5)
-        plt.colormap('jet')
+        plt.colorbar(label='Magnitude')
         plt.tight_layout()
         
-    def analyze_all(self, show_plots: bool = True) -> None:
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            plt.close(figure_num)
+        
+    def analyze_all(self, show_plots: bool = True, save_dir: str = None, file_prefix: str = "signal") -> None:
         """
         执行完整的信号分析，绘制所有图形
         
@@ -287,29 +311,49 @@ class SignalAnalyzer:
         ----------
         show_plots : bool, optional
             是否显示图形，默认为True
+        save_dir : str, optional
+            保存目录，如果提供则保存图片到该目录
+        file_prefix : str, optional
+            保存文件的前缀，默认为"signal"
         """
         if self.signal_data is None:
             raise ValueError("数据未加载，请先调用load_data方法")
             
         print("开始信号分析...")
         
+        # 确保保存目录存在
+        if save_dir:
+            os.makedirs(save_dir, exist_ok=True)
+        
         # 绘制时域图
         print("绘制时域图...")
-        self.plot_time_domain()
+        time_save_path = None
+        if save_dir:
+            time_save_path = os.path.join(save_dir, f"{file_prefix}_time_domain.png")
+        self.plot_time_domain(save_path=time_save_path)
         
         # 绘制频域图  
         print("绘制频域图...")
-        self.plot_frequency_domain()
+        freq_save_path = None
+        if save_dir:
+            freq_save_path = os.path.join(save_dir, f"{file_prefix}_frequency_domain.png")
+        self.plot_frequency_domain(save_path=freq_save_path)
         
         # 绘制相位图
         print("绘制相位图...")
-        self.plot_phase_domain()
+        phase_save_path = None
+        if save_dir:
+            phase_save_path = os.path.join(save_dir, f"{file_prefix}_phase_domain.png")
+        self.plot_phase_domain(save_path=phase_save_path)
         
         # 绘制时频图
         print("绘制时频图...")
-        self.plot_spectrogram()
+        spec_save_path = None
+        if save_dir:
+            spec_save_path = os.path.join(save_dir, f"{file_prefix}_spectrogram.png")
+        self.plot_spectrogram(save_path=spec_save_path)
         
-        if show_plots:
+        if show_plots and not save_dir:
             plt.show()
             
         print("信号分析完成!")

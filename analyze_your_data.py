@@ -118,8 +118,9 @@ def analyze_single_directory(data_dir: str) -> Dict:
             # 加载WAV数据
             analyzer.load_data_from_wav(wav_file, max_duration=2.0)  # 最多2秒
             
-            # 执行分析（不显示图形）
-            analyzer.analyze_all(show_plots=False)
+            # 执行分析（保存到ana_res目录）
+            file_prefix = f"{os.path.basename(data_dir)}_{filename.replace('.wav', '')}"
+            analyzer.analyze_all(show_plots=False, save_dir="ana_res", file_prefix=file_prefix)
             
             # 保存分析结果
             analysis_result = {
@@ -243,7 +244,11 @@ def create_comparison_plots(all_results: Dict[str, Dict]) -> None:
         mag = 2 / N * np.abs(Y)
         fn = np.arange(0, N//2 + 1) * analyzer.sampling_freq / N
         
-        plt.plot(fn[:len(fn)//10], mag[:len(mag)//10], 
+        # 确保频率和幅度数组长度匹配
+        mag_half = mag[:N//2 + 1]  # 只取前半部分对应正频率
+        plot_length = len(fn) // 10
+        
+        plt.plot(fn[:plot_length], mag_half[:plot_length], 
                 color=colors[i], label=f'{dir_name}', alpha=0.8)
     
     plt.xlim([0, 2000])
@@ -335,10 +340,14 @@ def create_comparison_plots(all_results: Dict[str, Dict]) -> None:
     plt.grid(True, alpha=0.3)
     
     plt.tight_layout()
-    plt.savefig('data_analysis_comparison.png', dpi=300, bbox_inches='tight')
-    plt.show()
     
-    print(f"✅ 对比图表已保存: data_analysis_comparison.png")
+    # 确保ana_res目录存在
+    os.makedirs('ana_res', exist_ok=True)
+    comparison_path = os.path.join('ana_res', 'data_analysis_comparison.png')
+    plt.savefig(comparison_path, dpi=300, bbox_inches='tight')
+    plt.close()  # 关闭图形而不显示
+    
+    print(f"✅ 对比图表已保存: {comparison_path}")
 
 
 def generate_analysis_report(all_results: Dict[str, Dict]) -> None:
@@ -455,7 +464,8 @@ def main():
     
     print(f"\n🎉 数据分析完成！")
     print(f"📊 生成的文件:")
-    print(f"   - data_analysis_comparison.png (对比图表)")
+    print(f"   - ana_res/data_analysis_comparison.png (对比图表)")
+    print(f"   - ana_res/ 目录中的所有单个文件分析图片")
     print(f"   - analysis_report.md (分析报告)")
     
     # 给出使用建议
