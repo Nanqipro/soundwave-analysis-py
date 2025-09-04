@@ -1,0 +1,14 @@
+# 声波信号分析工具依赖包
+# Signal Analysis Tool Dependencies
+
+# 核心数值计算库
+numpy>=1.21.0
+
+# 绘图库
+matplotlib>=3.5.0
+
+# 科学计算库 (信号处理)
+scipy>=1.8.0
+
+# 类型注解支持 (Python < 3.9)
+typing-extensions>=4.0.0; python_version < '3.9'
