@@ -25,6 +25,7 @@ class SignalAnalyzer:
     信号分析器类
     
     用于对声波信号进行时域、频域、相位和时频分析
+    支持多种输入格式：MATLAB .mat文件、numpy数组、WAV音频文件
     
     Attributes
     ----------
@@ -84,6 +85,55 @@ class SignalAnalyzer:
         """
         te_data = np.column_stack((time_array, signal_array))
         self._process_te_data(te_data)
+        
+    def load_data_from_wav(self, wav_file_path: str, max_duration: float = 1.0) -> None:
+        """
+        从WAV音频文件加载数据
+        
+        Parameters
+        ----------
+        wav_file_path : str
+            WAV音频文件路径
+        max_duration : float, optional
+            最大加载时长（秒），默认1秒
+        """
+        try:
+            # 优先使用librosa
+            try:
+                import librosa
+                signal, sr = librosa.load(wav_file_path, sr=None, mono=True)
+            except ImportError:
+                # 备用方案：使用scipy
+                from scipy.io import wavfile
+                sr, signal = wavfile.read(wav_file_path)
+                # 归一化
+                if signal.dtype == np.int16:
+                    signal = signal.astype(np.float32) / 32768.0
+                elif signal.dtype == np.int32:
+                    signal = signal.astype(np.float32) / 2147483648.0
+                # 转单声道
+                if len(signal.shape) > 1:
+                    signal = np.mean(signal, axis=1)
+            
+            # 限制时长
+            max_samples = int(max_duration * sr)
+            if len(signal) > max_samples:
+                signal = signal[:max_samples]
+            
+            # 生成时间轴
+            time_array = np.arange(len(signal)) / sr
+            
+            # 加载数据
+            self.load_data_from_arrays(time_array, signal)
+            print(f"✓ WAV文件加载成功: {os.path.basename(wav_file_path)}")
+            print(f"  原始采样率: {sr:,} Hz")
+            print(f"  时长: {len(signal)/sr:.3f} 秒")
+            print(f"  数据点数: {len(signal):,}")
+            
+        except Exception as e:
+            print(f"❌ WAV文件加载失败: {e}")
+            print("💡 建议安装: pip install librosa")
+            raise
         
     def _process_te_data(self, te_data: np.ndarray) -> None:
         """
@@ -290,19 +340,43 @@ if __name__ == "__main__":
     # 创建信号分析器实例
     analyzer = SignalAnalyzer()
     
-    # 检查是否存在.mat文件，否则使用示例数据
-    mat_file_path = "/Users/nanpipro/Documents/gitlocal/soundwave-analysis-py/data样例.mat"
+    # 数据加载优先级：WAV文件 > .mat文件 > 示例数据
+    data_loaded = False
     
-    if os.path.exists(mat_file_path):
+    # 1. 尝试加载WAV文件
+    wav_file_path = None
+    if os.path.exists("data"):
+        # 查找第一个可用的WAV文件
+        for root, dirs, files in os.walk("data"):
+            for file in files:
+                if file.endswith('.wav'):
+                    wav_file_path = os.path.join(root, file)
+                    break
+            if wav_file_path:
+                break
+    
+    if wav_file_path:
         try:
-            print("加载.mat文件数据...")
-            analyzer.load_data_from_mat(mat_file_path)
+            print(f"发现WAV文件，加载: {wav_file_path}")
+            analyzer.load_data_from_wav(wav_file_path)
+            data_loaded = True
         except Exception as e:
-            print(f"加载.mat文件失败，使用示例数据: {e}")
-            t_sample, signal_sample = create_sample_data()
-            analyzer.load_data_from_arrays(t_sample, signal_sample)
-    else:
-        print("未找到.mat文件，使用示例数据...")
+            print(f"加载WAV文件失败: {e}")
+    
+    # 2. 尝试加载.mat文件
+    if not data_loaded:
+        mat_file_path = "/Users/nanpipro/Documents/gitlocal/soundwave-analysis-py/data样例.mat"
+        if os.path.exists(mat_file_path):
+            try:
+                print("加载.mat文件数据...")
+                analyzer.load_data_from_mat(mat_file_path)
+                data_loaded = True
+            except Exception as e:
+                print(f"加载.mat文件失败: {e}")
+    
+    # 3. 使用示例数据
+    if not data_loaded:
+        print("使用示例数据...")
         t_sample, signal_sample = create_sample_data()
         analyzer.load_data_from_arrays(t_sample, signal_sample)
     
