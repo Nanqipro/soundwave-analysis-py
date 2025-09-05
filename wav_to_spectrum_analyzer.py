@@ -276,7 +276,8 @@ class SpectrumAnalyzer:
     
     def plot_time_domain(self, signal: np.ndarray, sample_rate: int, 
                         max_duration: Optional[float] = None,
-                        save_path: Optional[str] = None) -> None:
+                        save_path: Optional[str] = None,
+                        show_plot: bool = False) -> None:
         """
         绘制时域波形图
         
@@ -290,6 +291,8 @@ class SpectrumAnalyzer:
             最大显示时长（秒），None表示显示全部
         save_path : str, optional
             保存路径，None表示不保存
+        show_plot : bool, optional
+            是否显示图片，默认False
         """
         # 生成时间轴
         time_axis = np.arange(len(signal)) / sample_rate
@@ -326,7 +329,10 @@ class SpectrumAnalyzer:
             plt.savefig(full_save_path, dpi=300, bbox_inches='tight')
             print(f"✅ 时域图已保存: {full_save_path}")
         
-        plt.show()
+        if show_plot:
+            plt.show()
+        else:
+            plt.close()
     
     def analyze_phase_spectrum(self, signal: np.ndarray, sample_rate: int,
                               window_type: str = 'hann') -> Tuple[np.ndarray, np.ndarray]:
@@ -391,7 +397,8 @@ class SpectrumAnalyzer:
     
     def plot_phase_spectrum(self, frequencies: np.ndarray, phase_deg: np.ndarray,
                            freq_range: Optional[Tuple[float, float]] = None,
-                           save_path: Optional[str] = None) -> None:
+                           save_path: Optional[str] = None,
+                           show_plot: bool = False) -> None:
         """
         绘制相位谱图
         
@@ -405,6 +412,8 @@ class SpectrumAnalyzer:
             频率显示范围 (min_freq, max_freq)
         save_path : str, optional
             保存路径，None表示不保存
+        show_plot : bool, optional
+            是否显示图片，默认False
         """
         plt.figure(figsize=(12, 6))
         plt.plot(frequencies, phase_deg, 'g-', linewidth=0.8, alpha=0.8)
@@ -435,7 +444,10 @@ class SpectrumAnalyzer:
             plt.savefig(full_save_path, dpi=300, bbox_inches='tight')
             print(f"✅ 相位谱图已保存: {full_save_path}")
         
-        plt.show()
+        if show_plot:
+            plt.show()
+        else:
+            plt.close()
     
     def analyze_spectrogram(self, signal: np.ndarray, sample_rate: int,
                            window_length: Optional[int] = None,
@@ -487,7 +499,7 @@ class SpectrumAnalyzer:
     
     def plot_spectrogram(self, frequencies: np.ndarray, times: np.ndarray, 
                         Sxx: np.ndarray, freq_range: Optional[Tuple[float, float]] = None,
-                        save_path: Optional[str] = None) -> None:
+                        save_path: Optional[str] = None, show_plot: bool = False) -> None:
         """
         绘制时频谱图
         
@@ -503,6 +515,8 @@ class SpectrumAnalyzer:
             频率显示范围 (min_freq, max_freq)
         save_path : str, optional
             保存路径，None表示不保存
+        show_plot : bool, optional
+            是否显示图片，默认False
         """
         plt.figure(figsize=(12, 8))
         
@@ -531,7 +545,10 @@ class SpectrumAnalyzer:
             plt.savefig(full_save_path, dpi=300, bbox_inches='tight')
             print(f"✅ 时频谱图已保存: {full_save_path}")
         
-        plt.show()
+        if show_plot:
+            plt.show()
+        else:
+            plt.close()
     
     def analyze_wav_file(self, wav_file_path: str, 
                         max_freq: Optional[float] = None,
@@ -615,7 +632,8 @@ class SpectrumAnalyzer:
     def plot_spectrum(self, analysis_result: Dict, 
                      freq_range: Optional[Tuple[float, float]] = None,
                      spl_range: Optional[Tuple[float, float]] = None,
-                     save_path: Optional[str] = None) -> None:
+                     save_path: Optional[str] = None,
+                     show_plot: bool = False) -> None:
         """
         绘制频谱图
         
@@ -629,6 +647,8 @@ class SpectrumAnalyzer:
             声压级显示范围 (min_spl, max_spl)
         save_path : str, optional
             保存路径，None表示不保存
+        show_plot : bool, optional
+            是否显示图片，默认False
         """
         if not analysis_result['success']:
             print(f"❌ 无法绘制频谱图: {analysis_result.get('error', '分析失败')}")
@@ -683,12 +703,16 @@ class SpectrumAnalyzer:
             plt.savefig(full_save_path, dpi=300, bbox_inches='tight')
             print(f"✅ 频谱图已保存: {full_save_path}")
         
-        plt.show()
+        if show_plot:
+            plt.show()
+        else:
+            plt.close()
     
     def comprehensive_analysis(self, analysis_result: Dict,
                               freq_range: Optional[Tuple[float, float]] = None,
                               time_range: Optional[float] = None,
-                              save_prefix: Optional[str] = None) -> None:
+                              save_prefix: Optional[str] = None,
+                              show_plot: bool = False) -> None:
         """
         执行全面的综合分析（时域+频域+相位+时频）
         
@@ -702,6 +726,8 @@ class SpectrumAnalyzer:
             时域显示的最大时长（秒）
         save_prefix : str, optional
             保存文件的前缀，None表示不保存
+        show_plot : bool, optional
+            是否显示图片，默认False
         """
         if not analysis_result['success']:
             print(f"❌ 无法进行综合分析: {analysis_result.get('error', '分析失败')}")
@@ -831,7 +857,10 @@ class SpectrumAnalyzer:
             plt.savefig(full_save_path, dpi=300, bbox_inches='tight')
             print(f"✅ 综合分析图已保存: {full_save_path}")
         
-        plt.show()
+        if show_plot:
+            plt.show()
+        else:
+            plt.close()
         
         # 分别保存各个分析图
         if save_prefix:
@@ -839,17 +868,20 @@ class SpectrumAnalyzer:
             
             # 时域图
             self.plot_time_domain(signal, sr, max_duration=time_range,
-                                 save_path=f"{save_prefix}_time_domain.png")
+                                 save_path=f"{save_prefix}_time_domain.png",
+                                 show_plot=False)
             
             # 相位图  
             self.plot_phase_spectrum(phase_frequencies, phase_deg, 
                                    freq_range=freq_range,
-                                   save_path=f"{save_prefix}_phase_domain.png")
+                                   save_path=f"{save_prefix}_phase_domain.png",
+                                   show_plot=False)
             
             # 时频图
             self.plot_spectrogram(spec_freqs, spec_times, Sxx,
                                 freq_range=freq_range,
-                                save_path=f"{save_prefix}_spectrogram.png")
+                                save_path=f"{save_prefix}_spectrogram.png",
+                                show_plot=False)
         
         print(f"🎉 综合分析完成!")
     
@@ -916,7 +948,8 @@ class SpectrumAnalyzer:
                     save_name = f"{subdir}_{result['filename'][:-4]}_frequency_domain.png"
                     self.plot_spectrum(result, 
                                      freq_range=(0, max_freq),
-                                     save_path=save_name)
+                                     save_path=save_name,
+                                     show_plot=False)
                 
                 # 执行综合分析
                 if comprehensive_analysis and result['success']:
@@ -925,19 +958,21 @@ class SpectrumAnalyzer:
                         result,
                         freq_range=(0, max_freq) if max_freq else None,
                         time_range=time_range,
-                        save_prefix=save_prefix
+                        save_prefix=save_prefix,
+                        show_plot=False
                     )
             
             all_results[subdir] = subdir_results
         
         # 绘制对比图
         if plot_comparison:
-            self.plot_comparison_spectra(all_results, max_freq)
+            self.plot_comparison_spectra(all_results, max_freq, show_plot=False)
         
         return all_results
     
     def plot_comparison_spectra(self, all_results: Dict[str, List[Dict]], 
-                               max_freq: Optional[float] = None) -> None:
+                               max_freq: Optional[float] = None,
+                               show_plot: bool = False) -> None:
         """
         绘制对比频谱图
         
@@ -947,6 +982,8 @@ class SpectrumAnalyzer:
             所有分析结果
         max_freq : float, optional
             最大显示频率
+        show_plot : bool, optional
+            是否显示图片，默认False
         """
         print(f"\n📊 生成对比频谱图...")
         
@@ -1081,7 +1118,11 @@ class SpectrumAnalyzer:
         plt.tight_layout()
         comparison_save_path = self._get_output_path('data_analysis_comparison.png')
         plt.savefig(comparison_save_path, dpi=300, bbox_inches='tight')
-        plt.show()
+        
+        if show_plot:
+            plt.show()
+        else:
+            plt.close()
         
         print(f"✅ 对比分析图已保存: {comparison_save_path}")
 
@@ -1095,6 +1136,42 @@ def main():
     print("功能：时域信号 → 频谱图（频率精确到0.01Hz，声压级单位dB）")
     print()
     
+    # 分析模式选择
+    print("📋 请选择分析模式:")
+    print("1. 💼 批量分析 (分析data目录中的所有WAV文件)")
+    print("2. 📁 单个文件分析 (分析指定的WAV文件)")
+    print("3. 🎯 演示分析 (使用示例文件)")
+    
+    try:
+        choice = input("\n请输入选择 (1/2/3): ").strip()
+    except KeyboardInterrupt:
+        print("\n👋 分析已取消")
+        return
+    
+    if choice == "1":
+        # 批量分析模式
+        print("\n🔄 启动批量分析模式...")
+        batch_analysis_mode()
+        
+    elif choice == "2":
+        # 单个文件分析模式
+        print("\n📁 启动单个文件分析模式...")
+        single_file_analysis_mode()
+        
+    elif choice == "3":
+        # 演示模式
+        print("\n🎯 启动演示分析模式...")
+        demo_analysis_mode()
+        
+    else:
+        print("❌ 无效选择，请输入 1、2 或 3")
+        return
+
+
+def batch_analysis_mode():
+    """
+    批量分析模式
+    """
     # 创建分析器
     analyzer = SpectrumAnalyzer(target_freq_resolution=0.01)
     
@@ -1118,7 +1195,7 @@ def main():
     successful_files = sum(len([r for r in subdir_results if r['success']]) 
                           for subdir_results in results.values())
     
-    print(f"\n🎉 分析完成!")
+    print(f"\n🎉 批量分析完成!")
     print(f"📊 处理文件: {total_files} 个")
     print(f"✅ 成功分析: {successful_files} 个")
     print(f"📈 成功率: {successful_files/total_files*100:.1f}%")
@@ -1126,10 +1203,109 @@ def main():
     print(f"\n📁 生成的文件 (保存在 ana_res/ 目录下):")
     print(f"   *_frequency_domain.png - 各文件的频谱图")
     print(f"   data_analysis_comparison.png - 对比分析图")
-    print(f"   *_comprehensive_analysis.png - 综合分析图 (如果启用)")
-    print(f"   *_time_domain.png - 时域分析图 (如果启用综合分析)")
-    print(f"   *_phase_domain.png - 相位分析图 (如果启用综合分析)")
-    print(f"   *_spectrogram.png - 时频谱图 (如果启用综合分析)")
+
+
+def single_file_analysis_mode():
+    """
+    单个文件分析模式
+    """
+    try:
+        # 获取文件路径
+        file_path = input("📁 请输入WAV文件路径: ").strip()
+        
+        if not file_path:
+            print("❌ 未输入文件路径")
+            return
+            
+        # 移除可能的引号
+        file_path = file_path.strip('"\'')
+        
+        # 询问分析参数
+        print("\n⚙️ 分析参数设置:")
+        
+        try:
+            max_freq_input = input("🔊 最大分析频率 (Hz, 默认2000): ").strip()
+            max_freq = float(max_freq_input) if max_freq_input else 2000.0
+        except ValueError:
+            max_freq = 2000.0
+        
+        comprehensive_input = input("🔍 是否进行综合分析 (y/n, 默认y): ").strip().lower()
+        comprehensive = comprehensive_input not in ['n', 'no', '否']
+        
+        save_prefix = input("💾 保存文件前缀 (可选, 默认自动): ").strip()
+        if not save_prefix:
+            save_prefix = None
+        
+        # 执行分析
+        result = analyze_single_wav_file(
+            wav_file_path=file_path,
+            max_freq=max_freq,
+            comprehensive=comprehensive,
+            save_prefix=save_prefix
+        )
+        
+        if result['success']:
+            print(f"\n🎉 单个文件分析完成!")
+        else:
+            print(f"❌ 分析失败: {result.get('error', '未知错误')}")
+            
+    except KeyboardInterrupt:
+        print("\n👋 分析已取消")
+    except Exception as e:
+        print(f"❌ 分析过程中发生错误: {e}")
+
+
+def demo_analysis_mode():
+    """
+    演示分析模式
+    """
+    print("🎯 演示模式 - 自动寻找示例文件进行分析")
+    
+    # 寻找示例文件
+    demo_file = None
+    search_paths = ["data", ".", "examples", "samples"]
+    
+    for search_path in search_paths:
+        if os.path.exists(search_path):
+            for root, dirs, files in os.walk(search_path):
+                for file in files:
+                    if file.endswith('.wav'):
+                        demo_file = os.path.join(root, file)
+                        break
+                if demo_file:
+                    break
+        if demo_file:
+            break
+    
+    if not demo_file:
+        print("❌ 未找到可用于演示的WAV文件")
+        print("💡 建议:")
+        print("   - 在data目录中放置WAV文件")
+        print("   - 或使用选项2手动指定文件路径")
+        return
+    
+    print(f"📁 找到演示文件: {demo_file}")
+    print("🔍 使用默认参数进行综合分析...")
+    
+    # 执行演示分析
+    result = analyze_single_wav_file(
+        wav_file_path=demo_file,
+        max_freq=2000,
+        comprehensive=True,
+        save_prefix="demo"
+    )
+    
+    if result['success']:
+        print(f"\n🎉 演示分析完成!")
+        print("\n📚 分析结果说明:")
+        print("   🎵 频谱图显示频率与声压级的关系")
+        print("   📊 综合分析包含时域、频域、相位、时频四个维度")
+        print("   🔍 关键指标:")
+        print(f"     - 峰值频率: {result['peak_frequency']:.2f} Hz")
+        print(f"     - 峰值声压级: {result['peak_spl']:.1f} dB SPL")
+        print(f"     - 频率分辨率: {result['frequencies'][1] - result['frequencies'][0]:.4f} Hz")
+    else:
+        print(f"❌ 演示分析失败: {result.get('error', '未知错误')}")
     
     print(f"\n🔍 分析结果说明:")
     print(f"   横轴: 频率 (Hz)")
@@ -1137,12 +1313,102 @@ def main():
     print(f"   频率分辨率: 0.01 Hz (目标值)")
     print(f"   参考声压: 20 μPa")
     
-    print(f"\n✨ 新增功能:")
+    print(f"\n✨ 功能特性:")
     print(f"   🕐 时域分析 - 波形图和统计信息")
     print(f"   📐 相位分析 - 频率-相位关系")
     print(f"   🎵 时频分析 - 谱图显示时变频谱")
     print(f"   📊 综合分析 - 四合一分析图表")
-    print(f"   💡 使用提示: 设置 comprehensive_analysis=True 启用全面分析")
+
+
+def analyze_single_wav_file(wav_file_path: str, 
+                           max_freq: Optional[float] = 2000,
+                           comprehensive: bool = True,
+                           save_prefix: Optional[str] = None) -> Dict:
+    """
+    分析单个WAV文件的完整功能
+    
+    Parameters
+    ----------
+    wav_file_path : str
+        WAV文件路径
+    max_freq : float, optional
+        最大分析频率 (Hz)，默认2000Hz
+    comprehensive : bool, optional
+        是否进行综合分析（时域+频域+相位+时频），默认True
+    save_prefix : str, optional
+        保存文件前缀，None则自动生成
+        
+    Returns
+    -------
+    Dict
+        分析结果字典
+    """
+    print("🎵 单个WAV文件声学分析")
+    print("=" * 60)
+    
+    if not os.path.exists(wav_file_path):
+        print(f"❌ 文件不存在: {wav_file_path}")
+        return {'success': False, 'error': 'File not found'}
+    
+    # 创建分析器
+    analyzer = SpectrumAnalyzer(target_freq_resolution=0.01)
+    
+    # 分析文件
+    print(f"📁 分析文件: {os.path.basename(wav_file_path)}")
+    result = analyzer.analyze_wav_file(wav_file_path, max_freq)
+    
+    if not result['success']:
+        print(f"❌ 分析失败: {result.get('error', '未知错误')}")
+        return result
+    
+    # 自动生成保存前缀
+    if save_prefix is None:
+        basename = os.path.splitext(os.path.basename(wav_file_path))[0]
+        save_prefix = f"single_{basename}"
+    
+    print(f"\n📊 开始绘制分析图表...")
+    
+    # 绘制频谱图
+    analyzer.plot_spectrum(
+        result, 
+        freq_range=(0, max_freq) if max_freq else None,
+        save_path=f"{save_prefix}_frequency_spectrum.png",
+        show_plot=False
+    )
+    
+    if comprehensive:
+        # 执行综合分析
+        print(f"🔍 执行综合分析...")
+        analyzer.comprehensive_analysis(
+            result,
+            freq_range=(0, max_freq) if max_freq else None,
+            time_range=1.0,  # 时域显示前1秒
+            save_prefix=save_prefix,
+            show_plot=False
+        )
+        
+        print(f"\n✅ 综合分析完成！")
+        print(f"📁 生成的文件 (保存在 {analyzer.output_dir}/ 目录下):")
+        print(f"   {save_prefix}_frequency_spectrum.png - 频谱图")
+        print(f"   {save_prefix}_comprehensive_analysis.png - 四合一综合分析图")
+        print(f"   {save_prefix}_time_domain.png - 时域分析图")
+        print(f"   {save_prefix}_phase_domain.png - 相位谱图")
+        print(f"   {save_prefix}_spectrogram.png - 时频谱图")
+    else:
+        print(f"\n✅ 频谱分析完成！")
+        print(f"📁 生成的文件:")
+        print(f"   {save_prefix}_frequency_spectrum.png - 频谱图")
+    
+    # 显示关键分析结果
+    print(f"\n🔍 分析结果摘要:")
+    print(f"   文件时长: {result['duration']:.3f} 秒")
+    print(f"   采样率: {result['sample_rate']:,} Hz")
+    print(f"   峰值频率: {result['peak_frequency']:.2f} Hz")
+    print(f"   峰值声压级: {result['peak_spl']:.1f} dB SPL")
+    print(f"   频率范围: {result['frequencies'][0]:.3f} - {result['frequencies'][-1]:.1f} Hz")
+    print(f"   频率分辨率: {result['frequencies'][1] - result['frequencies'][0]:.4f} Hz")
+    
+    return result
 
 
 def example_comprehensive_analysis():
@@ -1186,7 +1452,8 @@ def example_comprehensive_analysis():
             result,
             freq_range=(0, 2000),  # 频率范围 0-2000Hz
             time_range=0.5,        # 时域显示前0.5秒
-            save_prefix="demo"     # 保存文件前缀
+            save_prefix="demo",    # 保存文件前缀
+            show_plot=False
         )
         
         print("\n✅ 演示完成！")
@@ -1199,8 +1466,55 @@ def example_comprehensive_analysis():
         print(f"❌ 分析失败: {result.get('error', '未知错误')}")
 
 
+def quick_analyze(wav_file_path: str, comprehensive: bool = True) -> Dict:
+    """
+    快速分析单个WAV文件的便捷函数
+    
+    Parameters
+    ----------
+    wav_file_path : str
+        WAV文件路径
+    comprehensive : bool, optional
+        是否进行综合分析，默认True
+        
+    Returns
+    -------
+    Dict
+        分析结果字典
+        
+    Examples
+    --------
+    >>> # 基本分析
+    >>> result = quick_analyze("path/to/audio.wav")
+    >>> # 只做频谱分析
+    >>> result = quick_analyze("path/to/audio.wav", comprehensive=False)
+    """
+    return analyze_single_wav_file(
+        wav_file_path=wav_file_path,
+        max_freq=2000,
+        comprehensive=comprehensive,
+        save_prefix=None
+    )
+
+
 if __name__ == "__main__":
     main()
     
-    # 取消注释下面这行来运行综合分析演示
-    # example_comprehensive_analysis()
+    # 使用示例：
+    # 
+    # 1. 运行主程序（交互式选择模式）:
+    #    python wav_to_spectrum_analyzer.py
+    #
+    # 2. 快速分析单个文件（编程方式）:
+    #    from wav_to_spectrum_analyzer import quick_analyze
+    #    result = quick_analyze("path/to/your/audio.wav")
+    #
+    # 3. 高级单个文件分析（编程方式）:
+    #    from wav_to_spectrum_analyzer import analyze_single_wav_file
+    #    result = analyze_single_wav_file("path/to/your/audio.wav", 
+    #                                   max_freq=4000, 
+    #                                   comprehensive=True,
+    #                                   save_prefix="my_analysis")
+    #
+    # 4. 运行综合分析演示:
+    #    example_comprehensive_analysis()
