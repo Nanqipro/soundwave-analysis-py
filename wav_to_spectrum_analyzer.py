@@ -61,7 +61,7 @@ class SpectrumAnalyzer:
     - 专业图表输出
     """
     
-    def __init__(self, target_freq_resolution: float = 0.01):
+    def __init__(self, target_freq_resolution: float = 0.01, output_dir: str = "ana_res"):
         """
         初始化频谱分析器
         
@@ -69,9 +69,15 @@ class SpectrumAnalyzer:
         ----------
         target_freq_resolution : float, optional
             目标频率分辨率 (Hz)，默认0.01Hz
+        output_dir : str, optional
+            输出目录路径，默认"ana_res"
         """
         self.target_freq_resolution = target_freq_resolution
         self.reference_pressure = 20e-6  # 参考声压 20μPa (空气中的标准)
+        self.output_dir = output_dir
+        
+        # 创建输出目录
+        self._ensure_output_dir()
         
     def load_wav_file(self, wav_file_path: str) -> Tuple[np.ndarray, int]:
         """
@@ -149,6 +155,30 @@ class SpectrumAnalyzer:
         actual_freq_resolution = sample_rate / actual_fft_length
         
         return actual_fft_length, actual_freq_resolution
+    
+    def _ensure_output_dir(self) -> None:
+        """
+        确保输出目录存在
+        """
+        if not os.path.exists(self.output_dir):
+            os.makedirs(self.output_dir)
+            print(f"✅ 创建输出目录: {self.output_dir}")
+    
+    def _get_output_path(self, filename: str) -> str:
+        """
+        获取完整的输出文件路径
+        
+        Parameters
+        ----------
+        filename : str
+            文件名
+            
+        Returns
+        -------
+        str
+            完整的输出路径
+        """
+        return os.path.join(self.output_dir, filename)
     
     def signal_to_spectrum(self, signal: np.ndarray, sample_rate: int, 
                           window_type: str = 'hann') -> Tuple[np.ndarray, np.ndarray]:
@@ -292,8 +322,9 @@ class SpectrumAnalyzer:
         plt.tight_layout()
         
         if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches='tight')
-            print(f"✅ 时域图已保存: {save_path}")
+            full_save_path = self._get_output_path(save_path) if not os.path.dirname(save_path) else save_path
+            plt.savefig(full_save_path, dpi=300, bbox_inches='tight')
+            print(f"✅ 时域图已保存: {full_save_path}")
         
         plt.show()
     
@@ -400,8 +431,9 @@ class SpectrumAnalyzer:
         plt.tight_layout()
         
         if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches='tight')
-            print(f"✅ 相位谱图已保存: {save_path}")
+            full_save_path = self._get_output_path(save_path) if not os.path.dirname(save_path) else save_path
+            plt.savefig(full_save_path, dpi=300, bbox_inches='tight')
+            print(f"✅ 相位谱图已保存: {full_save_path}")
         
         plt.show()
     
@@ -437,11 +469,12 @@ class SpectrumAnalyzer:
         # 计算重叠长度
         overlap_length = int(window_length * overlap_ratio)
         
-        # 使用Hamming窗
-        window = signal.windows.hamming(window_length)
+        # 使用Hamming窗 (导入scipy.signal模块)
+        from scipy import signal as sp_signal
+        window = sp_signal.windows.hamming(window_length)
         
         # 计算时频谱
-        frequencies, times, Sxx = signal.spectrogram(
+        frequencies, times, Sxx = sp_signal.spectrogram(
             signal,
             fs=sample_rate,
             window=window,
@@ -494,8 +527,9 @@ class SpectrumAnalyzer:
         plt.tight_layout()
         
         if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches='tight')
-            print(f"✅ 时频谱图已保存: {save_path}")
+            full_save_path = self._get_output_path(save_path) if not os.path.dirname(save_path) else save_path
+            plt.savefig(full_save_path, dpi=300, bbox_inches='tight')
+            print(f"✅ 时频谱图已保存: {full_save_path}")
         
         plt.show()
     
@@ -645,8 +679,9 @@ class SpectrumAnalyzer:
         
         # 保存图片
         if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches='tight')
-            print(f"✅ 频谱图已保存: {save_path}")
+            full_save_path = self._get_output_path(save_path) if not os.path.dirname(save_path) else save_path
+            plt.savefig(full_save_path, dpi=300, bbox_inches='tight')
+            print(f"✅ 频谱图已保存: {full_save_path}")
         
         plt.show()
     
@@ -792,8 +827,9 @@ class SpectrumAnalyzer:
         # 保存综合分析图
         if save_prefix:
             save_path = f"{save_prefix}_comprehensive_analysis.png"
-            plt.savefig(save_path, dpi=300, bbox_inches='tight')
-            print(f"✅ 综合分析图已保存: {save_path}")
+            full_save_path = self._get_output_path(save_path)
+            plt.savefig(full_save_path, dpi=300, bbox_inches='tight')
+            print(f"✅ 综合分析图已保存: {full_save_path}")
         
         plt.show()
         
@@ -808,7 +844,7 @@ class SpectrumAnalyzer:
             # 相位图  
             self.plot_phase_spectrum(phase_frequencies, phase_deg, 
                                    freq_range=freq_range,
-                                   save_path=f"{save_prefix}_phase_spectrum.png")
+                                   save_path=f"{save_prefix}_phase_domain.png")
             
             # 时频图
             self.plot_spectrogram(spec_freqs, spec_times, Sxx,
@@ -877,14 +913,14 @@ class SpectrumAnalyzer:
                 
                 # 绘制单独频谱图
                 if plot_individual and result['success']:
-                    save_name = f"spectrum_{subdir}_{result['filename'][:-4]}.png"
+                    save_name = f"{subdir}_{result['filename'][:-4]}_frequency_domain.png"
                     self.plot_spectrum(result, 
                                      freq_range=(0, max_freq),
                                      save_path=save_name)
                 
                 # 执行综合分析
                 if comprehensive_analysis and result['success']:
-                    save_prefix = f"comprehensive_{subdir}_{result['filename'][:-4]}"
+                    save_prefix = f"{subdir}_{result['filename'][:-4]}"
                     self.comprehensive_analysis(
                         result,
                         freq_range=(0, max_freq) if max_freq else None,
@@ -1043,10 +1079,11 @@ class SpectrumAnalyzer:
                 bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.8))
         
         plt.tight_layout()
-        plt.savefig('spectrum_comparison_analysis.png', dpi=300, bbox_inches='tight')
+        comparison_save_path = self._get_output_path('data_analysis_comparison.png')
+        plt.savefig(comparison_save_path, dpi=300, bbox_inches='tight')
         plt.show()
         
-        print(f"✅ 对比分析图已保存: spectrum_comparison_analysis.png")
+        print(f"✅ 对比分析图已保存: {comparison_save_path}")
 
 
 def main():
@@ -1086,10 +1123,13 @@ def main():
     print(f"✅ 成功分析: {successful_files} 个")
     print(f"📈 成功率: {successful_files/total_files*100:.1f}%")
     
-    print(f"\n📁 生成的文件:")
-    print(f"   spectrum_*.png - 各文件的频谱图")
-    print(f"   spectrum_comparison_analysis.png - 对比分析图")
-    print(f"   comprehensive_*.png - 综合分析图 (如果启用)")
+    print(f"\n📁 生成的文件 (保存在 ana_res/ 目录下):")
+    print(f"   *_frequency_domain.png - 各文件的频谱图")
+    print(f"   data_analysis_comparison.png - 对比分析图")
+    print(f"   *_comprehensive_analysis.png - 综合分析图 (如果启用)")
+    print(f"   *_time_domain.png - 时域分析图 (如果启用综合分析)")
+    print(f"   *_phase_domain.png - 相位分析图 (如果启用综合分析)")
+    print(f"   *_spectrogram.png - 时频谱图 (如果启用综合分析)")
     
     print(f"\n🔍 分析结果说明:")
     print(f"   横轴: 频率 (Hz)")
@@ -1150,10 +1190,10 @@ def example_comprehensive_analysis():
         )
         
         print("\n✅ 演示完成！")
-        print("📁 生成的文件:")
+        print(f"📁 生成的文件 (保存在 {analyzer.output_dir}/ 目录下):")
         print("   demo_comprehensive_analysis.png - 四合一综合分析图")
         print("   demo_time_domain.png - 时域分析图")
-        print("   demo_phase_spectrum.png - 相位谱图")
+        print("   demo_phase_domain.png - 相位谱图")
         print("   demo_spectrogram.png - 时频谱图")
     else:
         print(f"❌ 分析失败: {result.get('error', '未知错误')}")
