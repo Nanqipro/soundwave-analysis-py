@@ -296,8 +296,8 @@ class SpectrumAnalyzer:
         n_positive_freqs = len(fft_result) // 2 + 1
         fft_positive = fft_result[:n_positive_freqs]
         
-        # 生成频率轴（直接计算正频率，避免fftfreq的负频率问题）
-        frequencies = np.linspace(0, sample_rate/2, n_positive_freqs)
+        # 生成频率轴
+        frequencies = np.fft.fftfreq(len(fft_result), 1/sample_rate)[:n_positive_freqs]
         
         # 计算功率谱密度 (PSD)
         psd = np.abs(fft_positive)**2
@@ -437,8 +437,8 @@ class SpectrumAnalyzer:
         n_positive_freqs = len(fft_result) // 2 + 1
         fft_positive = fft_result[:n_positive_freqs]
         
-        # 生成频率轴（直接计算正频率，避免fftfreq的负频率问题）
-        frequencies = np.linspace(0, sample_rate/2, n_positive_freqs)
+        # 生成频率轴
+        frequencies = np.fft.fftfreq(len(fft_result), 1/sample_rate)[:n_positive_freqs]
         
         # 计算相位（转换为度）
         phase_rad = np.angle(fft_positive)
@@ -487,10 +487,10 @@ class SpectrumAnalyzer:
         # 转换距离参数为索引间隔
         min_distance_idx = max(1, int(min_distance / freq_resolution))
         
-        # 完全移除高度阈值限制，让突出度参数完全主导
+        # 自动计算最小高度阈值
         if min_height is None:
-            # 不再使用高度阈值，让突出度参数发挥真正作用
-            min_height = None
+            # 使用中位数 + 1.5倍标准差作为阈值
+            min_height = np.median(spl_db) + 1.5 * np.std(spl_db)
         
         # 检测峰值
         peak_indices, peak_properties = find_peaks(
@@ -500,17 +500,8 @@ class SpectrumAnalyzer:
             distance=min_distance_idx    # 最小距离
         )
         
-        # 限制峰值数量（只有在确实需要限制时才应用）
+        # 限制峰值数量
         if len(peak_indices) > max_peaks:
-            original_count = len(peak_indices)
-            print(f"⚠️  检测到 {original_count} 个峰值，根据max_peaks={max_peaks}限制，保留最显著的 {max_peaks} 个")
-            
-            # 智能提示：如果截断严重，建议调整参数
-            truncation_ratio = max_peaks / original_count
-            if truncation_ratio < 0.6:  # 截断超过40%
-                print(f"💡 提示：截断了 {original_count - max_peaks} 个峰值({(1-truncation_ratio)*100:.0f}%)，")
-                print(f"   要看到突出度参数真实效果，建议增大'最大检测峰值数'到 {min(200, int(original_count * 1.2))}")
-            
             # 按突出度排序，保留最显著的峰值
             prominences = peak_properties['prominences']
             sorted_indices = np.argsort(prominences)[::-1]
@@ -2014,7 +2005,6 @@ def analyze_resonance_peaks_only(wav_file_path: str,
                                 min_prominence: float = 6.0,
                                 min_distance: float = 10.0,
                                 max_freq: float = 2000,
-                                max_peaks: int = 20,
                                 save_prefix: Optional[str] = None) -> Dict:
     """
     专门进行共振峰分析的便捷函数
@@ -2029,8 +2019,6 @@ def analyze_resonance_peaks_only(wav_file_path: str,
         相邻峰值间最小频率间隔 (Hz)，默认10.0Hz
     max_freq : float, optional
         最大分析频率 (Hz)，默认2000Hz
-    max_peaks : int, optional
-        最大检测峰值数量，默认20
     save_prefix : str, optional
         保存文件前缀，None则自动生成
         
@@ -2073,7 +2061,7 @@ def analyze_resonance_peaks_only(wav_file_path: str,
         result['frequencies'], result['spl_db'],
         min_prominence=min_prominence,
         min_distance=min_distance,
-        max_peaks=max_peaks
+        max_peaks=20
     )
     
     # 更新结果
