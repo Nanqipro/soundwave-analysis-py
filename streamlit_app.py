@@ -148,10 +148,11 @@ def main():
         
         max_peaks = st.slider(
             "最大检测峰值数",
-            min_value=5,
-            max_value=30,
-            value=15,
-            step=1
+            min_value=20,
+            max_value=300,
+            value=120,
+            step=10,
+            help="突出度参数需要较大的值才能显示效果。建议：突出度测试时使用≥120"
         )
     
     # 根据分析模式显示不同界面
@@ -435,6 +436,7 @@ def process_resonance_analysis(uploaded_file, max_freq, min_prominence, min_dist
             min_prominence=min_prominence,
             min_distance=min_distance,
             max_freq=max_freq,
+            max_peaks=max_peaks,
             save_prefix="resonance"
         )
         
