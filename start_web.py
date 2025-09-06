@@ -4,7 +4,8 @@
 声学分析工具启动脚本
 ===================
 
-简约版声学分析工具快速启动脚本
+专业版声学分析工具快速启动脚本
+支持参数配置和专业分析功能
 
 作者：nanqipro
 """
@@ -29,22 +30,27 @@ def check_dependencies():
         'matplotlib',
         'scipy',
         'pandas',
-        'Pillow'
+        'Pillow',
+        'librosa'  # 可选，用于更好的音频处理
     ]
     
     missing_packages = []
     
     for package in required_packages:
         try:
-            __import__(package.lower())
-        except ImportError:
             if package == 'Pillow':
+                __import__('PIL')
+            elif package == 'librosa':
+                # librosa是可选的，不是必需的
                 try:
-                    __import__('PIL')
+                    __import__(package.lower())
                 except ImportError:
-                    missing_packages.append(package)
+                    print(f"ℹ️  可选依赖 {package} 未安装，将使用scipy作为音频处理后端")
+                    continue
             else:
-                missing_packages.append(package)
+                __import__(package.lower())
+        except ImportError:
+            missing_packages.append(package)
     
     return missing_packages
 
@@ -71,10 +77,12 @@ def install_dependencies():
 
 def start_streamlit():
     """启动Streamlit应用"""
-    print("🚀 正在启动声学分析工具...")
+    print("🚀 正在启动专业版声学分析工具...")
     print("📱 界面将在浏览器中自动打开 http://localhost:8501")
+    print("⚙️  请在左侧面板调节分析参数")
+    print("🎛️  支持5种预设配置：建筑声学、语音分析、音乐分析、快速分析、高精度分析")
     print("🛑 按 Ctrl+C 停止服务")
-    print("-" * 50)
+    print("-" * 70)
     
     try:
         # 启动Streamlit
@@ -92,7 +100,10 @@ def start_streamlit():
 
 def main():
     """主函数"""
-    print("🎵 简约版声学分析工具启动器")
+    print("🎵 专业版声学分析工具启动器")
+    print("=" * 50)
+    print("✨ 新功能：支持参数定制、实时调节、多种预设配置")
+    print("🔧 专业级频谱分析、共振峰检测、时频分析")
     print("=" * 50)
     
     # 检查核心文件
