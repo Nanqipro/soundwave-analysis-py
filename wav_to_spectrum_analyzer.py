@@ -707,6 +707,91 @@ class SpectrumAnalyzer:
         else:
             plt.close()
     
+    def save_resonance_peaks_csv(self, resonance_result: Dict, 
+                                filename: str,
+                                save_path: Optional[str] = None,
+                                subdir: str = None) -> None:
+        """
+        保存共振峰数据到CSV文件
+        
+        Parameters
+        ----------
+        resonance_result : Dict
+            共振峰检测结果
+        filename : str
+            原始音频文件名
+        save_path : str, optional
+            保存路径，None表示自动生成
+        subdir : str, optional
+            子目录名
+        """
+        import csv
+        from datetime import datetime
+        
+        # 自动生成保存路径
+        if save_path is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            save_path = f"resonance_peaks_{filename[:-4]}_{timestamp}.csv"
+        
+        full_save_path = self._get_output_path(save_path, subdir)
+        
+        resonance_peaks = resonance_result['resonance_peaks']
+        stats = resonance_result['statistics']
+        detection_params = resonance_result['detection_parameters']
+        
+        try:
+            with open(full_save_path, 'w', newline='', encoding='utf-8') as csvfile:
+                writer = csv.writer(csvfile)
+                
+                # 写入文件头信息
+                writer.writerow(['# 共振峰分析结果'])
+                writer.writerow(['# 文件名', filename])
+                writer.writerow(['# 分析时间', datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+                writer.writerow([])
+                
+                # 写入检测参数
+                writer.writerow(['# 检测参数'])
+                writer.writerow(['最小突出度 (dB)', detection_params['min_prominence']])
+                writer.writerow(['最小频率间隔 (Hz)', detection_params['min_distance']])
+                writer.writerow(['最小高度 (dB SPL)', detection_params['min_height']])
+                writer.writerow(['最大峰值数', detection_params['max_peaks']])
+                writer.writerow([])
+                
+                # 写入统计信息
+                writer.writerow(['# 统计信息'])
+                writer.writerow(['检测到的峰值总数', stats['total_peaks']])
+                if stats['total_peaks'] > 0:
+                    writer.writerow(['频率范围 (Hz)', f"{stats['frequency_range'][0]:.2f} - {stats['frequency_range'][1]:.2f}"])
+                    writer.writerow(['平均频率 (Hz)', f"{stats['mean_frequency']:.2f}"])
+                    writer.writerow(['频率标准差 (Hz)', f"{stats['std_frequency']:.2f}"])
+                    writer.writerow(['声压级范围 (dB SPL)', f"{stats['spl_range'][0]:.1f} - {stats['spl_range'][1]:.1f}"])
+                    writer.writerow(['平均声压级 (dB SPL)', f"{stats['mean_spl']:.1f}"])
+                    writer.writerow(['声压级标准差 (dB SPL)', f"{stats['std_spl']:.1f}"])
+                    
+                    if stats['dominant_peak']:
+                        dominant = stats['dominant_peak']
+                        writer.writerow(['主导峰值频率 (Hz)', f"{dominant['center_frequency']:.2f}"])
+                        writer.writerow(['主导峰值声压级 (dB SPL)', f"{dominant['peak_spl']:.1f}"])
+                writer.writerow([])
+                
+                # 写入详细峰值数据
+                writer.writerow(['# 共振峰详细数据'])
+                writer.writerow(['排名', '中心频率 (Hz)', '峰值声压级 (dB SPL)', '突出度 (dB)', '频率索引'])
+                
+                for peak in resonance_peaks:
+                    writer.writerow([
+                        peak['rank'],
+                        f"{peak['center_frequency']:.3f}",
+                        f"{peak['peak_spl']:.2f}",
+                        f"{peak['prominence']:.2f}",
+                        peak['index']
+                    ])
+            
+            print(f"✅ 共振峰数据已保存: {full_save_path}")
+            
+        except Exception as e:
+            print(f"❌ 保存共振峰CSV文件失败: {e}")
+    
     def plot_phase_spectrum(self, frequencies: np.ndarray, phase_deg: np.ndarray,
                            freq_range: Optional[Tuple[float, float]] = None,
                            save_path: Optional[str] = None,
@@ -1208,13 +1293,21 @@ class SpectrumAnalyzer:
                                 save_path=f"{save_prefix}_spectrogram.png",
                                 show_plot=False, subdir=subdir)
             
-            # 共振峰分析图
+            # 共振峰分析图和CSV数据
             if 'resonance_peaks' in analysis_result and analysis_result['resonance_peaks']:
                 self.plot_resonance_peaks(
                     frequencies, spl_db, analysis_result['resonance_peaks'],
                     freq_range=freq_range,
                     save_path=f"{save_prefix}_resonance_peaks.png",
                     show_plot=False, subdir=subdir
+                )
+                
+                # 保存共振峰数据到CSV
+                self.save_resonance_peaks_csv(
+                    analysis_result['resonance_peaks'],
+                    analysis_result['filename'],
+                    save_path=f"{save_prefix}_resonance_peaks.csv",
+                    subdir=subdir
                 )
         
         print(f"🎉 综合分析完成!")
@@ -1286,13 +1379,21 @@ class SpectrumAnalyzer:
                                      show_plot=False,
                                      subdir=subdir)
                     
-                    # 绘制共振峰分析图
+                    # 绘制共振峰分析图和保存CSV数据
                     if 'resonance_peaks' in result and result['resonance_peaks']:
                         self.plot_resonance_peaks(
                             result['frequencies'], result['spl_db'], result['resonance_peaks'],
                             freq_range=(0, max_freq) if max_freq else None,
                             save_path=f"{subdir}_{result['filename'][:-4]}_resonance_peaks.png",
                             show_plot=False,
+                            subdir=subdir
+                        )
+                        
+                        # 保存共振峰数据到CSV
+                        self.save_resonance_peaks_csv(
+                            result['resonance_peaks'],
+                            result['filename'],
+                            save_path=f"{subdir}_{result['filename'][:-4]}_resonance_peaks.csv",
                             subdir=subdir
                         )
                 
@@ -1549,6 +1650,7 @@ def batch_analysis_mode():
     print(f"\n📁 生成的文件 (按数据文件夹分别保存在 ana_res/ 目录下):")
     print(f"   各子目录/*_frequency_domain.png - 频谱图")
     print(f"   各子目录/*_resonance_peaks.png - 共振峰分析图")
+    print(f"   各子目录/*_resonance_peaks.csv - 共振峰数据表")
 
 
 def single_file_analysis_mode():
@@ -1732,13 +1834,21 @@ def analyze_single_wav_file(wav_file_path: str,
         subdir=subdir
     )
     
-    # 绘制共振峰分析图
+    # 绘制共振峰分析图和保存CSV数据
     if 'resonance_peaks' in result and result['resonance_peaks']:
         analyzer.plot_resonance_peaks(
             result['frequencies'], result['spl_db'], result['resonance_peaks'],
             freq_range=(0, max_freq) if max_freq else None,
             save_path=f"{save_prefix}_resonance_peaks.png",
             show_plot=False,
+            subdir=subdir
+        )
+        
+        # 保存共振峰数据到CSV
+        analyzer.save_resonance_peaks_csv(
+            result['resonance_peaks'],
+            result['filename'],
+            save_path=f"{save_prefix}_resonance_peaks.csv",
             subdir=subdir
         )
     
@@ -1766,12 +1876,14 @@ def analyze_single_wav_file(wav_file_path: str,
         print(f"   {save_prefix}_spectrogram.png - 时频谱图")
         if 'resonance_peaks' in result and result['resonance_peaks']:
             print(f"   {save_prefix}_resonance_peaks.png - 共振峰分析图")
+            print(f"   {save_prefix}_resonance_peaks.csv - 共振峰数据表")
     else:
         print(f"\n✅ 频谱分析完成！")
         print(f"📁 生成的文件:")
         print(f"   {save_prefix}_frequency_spectrum.png - 频谱图")
         if 'resonance_peaks' in result and result['resonance_peaks']:
             print(f"   {save_prefix}_resonance_peaks.png - 共振峰分析图")
+            print(f"   {save_prefix}_resonance_peaks.csv - 共振峰数据表")
     
     # 显示关键分析结果
     print(f"\n🔍 分析结果摘要:")
@@ -1964,6 +2076,14 @@ def analyze_resonance_peaks_only(wav_file_path: str,
         subdir=subdir
     )
     
+    # 保存共振峰数据到CSV
+    analyzer.save_resonance_peaks_csv(
+        resonance_result,
+        result['filename'],
+        save_path=f"{save_prefix}_data.csv",
+        subdir=subdir
+    )
+    
     # 输出详细的共振峰信息
     print(f"\n🎯 共振峰详细信息:")
     resonance_peaks = resonance_result['resonance_peaks']
@@ -1975,7 +2095,9 @@ def analyze_resonance_peaks_only(wav_file_path: str,
                   f"{peak['peak_spl']:<12.1f} {peak['prominence']:<12.1f}")
     
     print(f"\n✅ 共振峰分析完成！")
-    print(f"📁 生成文件: {save_prefix}_analysis.png")
+    print(f"📁 生成文件:")
+    print(f"   {save_prefix}_analysis.png - 共振峰分析图")
+    print(f"   {save_prefix}_data.csv - 共振峰数据表")
     
     return result
 
