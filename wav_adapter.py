@@ -38,6 +38,7 @@ OUTPUT_SUBDIRS = {
     "analysis": "analysis_results",      # 音频分析结果
     "conversion": "wav_to_te_data",      # WAV转Te格式数据
     "statistics": "summary_statistics",   # 统计汇总数据
+    "individual": "individual_files",    # 单个文件分析结果
 }
 
 # 音频处理库导入（优先使用可用的库）
@@ -483,6 +484,154 @@ def save_summary_statistics_to_csv(analysis_results: Dict[str, List[AudioInfo]],
     return csv_filepath
 
 
+def save_individual_audio_info_to_csv(audio_info: AudioInfo, output_dir: str) -> str:
+    """
+    将单个音频文件信息保存为CSV文件
+    
+    Parameters
+    ----------
+    audio_info : AudioInfo
+        单个音频文件信息
+    output_dir : str
+        输出目录路径
+        
+    Returns
+    -------
+    str
+        保存的CSV文件路径
+    """
+    # 准备CSV数据
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = os.path.splitext(os.path.basename(audio_info.file_path))[0]
+    directory = os.path.basename(os.path.dirname(audio_info.file_path))
+    csv_filename = f"audio_info_{directory}_{filename}_{timestamp}.csv"
+    csv_filepath = os.path.join(output_dir, csv_filename)
+    
+    # 创建详细信息数据
+    detailed_data = {
+        'property': ['directory', 'filename', 'file_path', 'sample_rate', 'duration_seconds', 
+                    'channels', 'bit_depth', 'total_samples', 'file_size_bytes', 'file_size_kb', 
+                    'analysis_timestamp'],
+        'value': [directory, os.path.basename(audio_info.file_path), audio_info.file_path,
+                 audio_info.sample_rate, audio_info.duration, audio_info.channels,
+                 audio_info.bit_depth, audio_info.samples, audio_info.file_size,
+                 audio_info.file_size / 1024, datetime.now().isoformat()]
+    }
+    
+    # 保存为CSV文件
+    df = pd.DataFrame(detailed_data)
+    df.to_csv(csv_filepath, index=False, encoding='utf-8-sig')
+    
+    print(f"💾 单个音频文件信息已保存: {csv_filename}")
+    
+    return csv_filepath
+
+
+def process_all_wav_files_to_csv(data_dir: str, output_paths: Dict[str, str]) -> Dict[str, int]:
+    """
+    批量处理所有WAV文件，为每个文件生成单独的CSV文件
+    
+    Parameters
+    ----------
+    data_dir : str
+        数据目录路径
+    output_paths : Dict[str, str]
+        输出目录路径映射
+        
+    Returns
+    -------
+    Dict[str, int]
+        处理结果统计
+    """
+    print("\n🔄 批量处理所有WAV文件...")
+    print("=" * 60)
+    
+    converter = WAVToTeConverter()
+    
+    # 统计信息
+    stats = {
+        'total_files': 0,
+        'success_files': 0,
+        'failed_files': 0,
+        'te_csv_files': 0,
+        'info_csv_files': 0
+    }
+    
+    # 遍历所有子目录
+    for subdir in sorted(os.listdir(data_dir)):
+        subdir_path = os.path.join(data_dir, subdir)
+        if not os.path.isdir(subdir_path):
+            continue
+            
+        print(f"\n📁 处理目录: {subdir}")
+        
+        # 查找WAV文件
+        wav_files = glob.glob(os.path.join(subdir_path, "*.wav"))
+        if not wav_files:
+            print(f"   ⚠️  未找到WAV文件")
+            continue
+            
+        # 为每个子目录创建单独的输出目录
+        subdir_output_te = os.path.join(output_paths['conversion'], subdir)
+        subdir_output_info = os.path.join(output_paths['individual'], subdir)
+        os.makedirs(subdir_output_te, exist_ok=True)
+        os.makedirs(subdir_output_info, exist_ok=True)
+        
+        # 处理每个WAV文件
+        for wav_file in sorted(wav_files):
+            stats['total_files'] += 1
+            filename = os.path.basename(wav_file)
+            print(f"   📄 处理文件: {filename}")
+            
+            try:
+                # 1. 获取音频信息并保存为CSV
+                audio_info = converter.get_audio_info(wav_file)
+                info_csv = save_individual_audio_info_to_csv(audio_info, subdir_output_info)
+                stats['info_csv_files'] += 1
+                
+                # 2. 转换为Te格式并保存为CSV
+                te_data = converter.wav_to_te_format(wav_file)
+                
+                # 自定义Te数据CSV文件名
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                base_filename = os.path.splitext(filename)[0]
+                te_csv_filename = f"te_data_{subdir}_{base_filename}_{timestamp}.csv"
+                te_csv_filepath = os.path.join(subdir_output_te, te_csv_filename)
+                
+                # 创建DataFrame并保存
+                df = pd.DataFrame({
+                    'time_seconds': te_data[:, 0],
+                    'signal_amplitude': te_data[:, 1],
+                    'source_file': wav_file,
+                    'directory': subdir,
+                    'filename': filename,
+                    'conversion_timestamp': datetime.now().isoformat()
+                })
+                df.to_csv(te_csv_filepath, index=False, encoding='utf-8-sig')
+                stats['te_csv_files'] += 1
+                
+                print(f"      ✅ 信息CSV: {os.path.basename(info_csv)}")
+                print(f"      ✅ Te数据CSV: {te_csv_filename}")
+                print(f"      📊 数据点数: {len(te_data):,}")
+                print(f"      ⏱️  时长: {audio_info.duration:.3f}秒")
+                
+                stats['success_files'] += 1
+                
+            except Exception as e:
+                print(f"      ❌ 处理失败: {e}")
+                stats['failed_files'] += 1
+    
+    # 打印处理结果统计
+    print(f"\n📈 批量处理完成统计:")
+    print(f"   总文件数: {stats['total_files']}")
+    print(f"   成功处理: {stats['success_files']}")
+    print(f"   处理失败: {stats['failed_files']}")
+    print(f"   生成Te数据CSV: {stats['te_csv_files']}")
+    print(f"   生成信息CSV: {stats['info_csv_files']}")
+    
+    return stats
+
+
 def configure_data_paths() -> str:
     """
     配置并验证数据输入路径
@@ -770,6 +919,7 @@ def integration_example(data_dir: str, output_paths: Optional[Dict[str, str]] = 
 
 def main():
     """
+    
     主函数：运行所有分析和演示
     
     统一配置数据输入路径并执行所有分析功能
@@ -784,7 +934,7 @@ def main():
         print("   # 或者")
         print("   pip install soundfile")
         return
-    
+        
     try:
         # 统一配置和验证数据输入路径
         data_directory = configure_data_paths()
@@ -793,13 +943,16 @@ def main():
         # 创建输出目录结构
         output_paths = setup_output_directories()
         
-        # 分析项目数据并保存CSV
+        # 分析项目数据并保存汇总CSV
         analysis_results = analyze_project_data(data_directory, output_paths)
         
-        # 演示转换功能并保存CSV
-        te_data = demonstrate_wav_conversion(data_directory, output_paths)
+        # 批量处理所有WAV文件，为每个文件生成单独的CSV
+        individual_stats = process_all_wav_files_to_csv(data_directory, output_paths)
         
-        # 集成示例
+        # 演示转换功能（可选，用于测试）
+        # te_data = demonstrate_wav_conversion(data_directory, output_paths)
+        
+        # 集成示例（如需要可以取消注释）
         # integration_example(data_directory, output_paths)
         
         print(f"\n✅ WAV数据适配完成！")
@@ -807,9 +960,11 @@ def main():
         print(f"📊 所有分析结果已保存到 {os.path.abspath(DEFAULT_OUTPUT_DIR)} 目录")
         
         if analysis_results:
-            print(f"📈 处理的音频文件总数: {sum(len(infos) for infos in analysis_results.values())}")
-        if te_data is not None:
-            print(f"🔄 Te格式转换数据点数: {len(te_data):,}")
+            print(f"📈 汇总分析的音频文件总数: {sum(len(infos) for infos in analysis_results.values())}")
+        if individual_stats:
+            print(f"🔄 单独处理的音频文件总数: {individual_stats['success_files']}")
+            print(f"📄 生成的Te数据CSV文件数: {individual_stats['te_csv_files']}")
+            print(f"📄 生成的音频信息CSV文件数: {individual_stats['info_csv_files']}")
         
     except FileNotFoundError as e:
         print(f"\n❌ 数据路径配置错误:")
