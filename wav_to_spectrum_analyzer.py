@@ -164,7 +164,7 @@ class SpectrumAnalyzer:
             os.makedirs(self.output_dir)
             print(f"✅ 创建输出目录: {self.output_dir}")
     
-    def _get_output_path(self, filename: str) -> str:
+    def _get_output_path(self, filename: str, subdir: str = None) -> str:
         """
         获取完整的输出文件路径
         
@@ -172,13 +172,63 @@ class SpectrumAnalyzer:
         ----------
         filename : str
             文件名
+        subdir : str, optional
+            子目录名，用于按数据文件夹区分
             
         Returns
         -------
         str
             完整的输出路径
         """
-        return os.path.join(self.output_dir, filename)
+        if subdir:
+            # 创建子目录路径
+            subdir_path = os.path.join(self.output_dir, subdir)
+            if not os.path.exists(subdir_path):
+                os.makedirs(subdir_path)
+                print(f"✅ 创建子目录: {subdir_path}")
+            return os.path.join(subdir_path, filename)
+        else:
+            return os.path.join(self.output_dir, filename)
+    
+    def _extract_data_folder_name(self, wav_file_path: str) -> str:
+        """
+        从WAV文件路径中提取数据文件夹名称
+        
+        Parameters
+        ----------
+        wav_file_path : str
+            WAV文件路径
+            
+        Returns
+        -------
+        str
+            数据文件夹名称，如果无法提取则返回"single_files"
+        """
+        # 标准化路径
+        normalized_path = os.path.normpath(wav_file_path)
+        path_parts = normalized_path.split(os.sep)
+        
+        # 查找data目录的位置
+        data_index = -1
+        for i, part in enumerate(path_parts):
+            if part == "data":
+                data_index = i
+                break
+        
+        # 如果找到data目录，返回其下一级目录名
+        if data_index >= 0 and data_index + 1 < len(path_parts):
+            return path_parts[data_index + 1]
+        
+        # 如果没找到data目录，尝试从文件名中提取
+        filename = os.path.basename(wav_file_path)
+        # 如果文件名包含类似S1R1的格式，提取出来
+        import re
+        match = re.match(r'([A-Z]\d+[A-Z]\d+)', filename)
+        if match:
+            return match.group(1)
+        
+        # 默认返回single_files
+        return "single_files"
     
     def signal_to_spectrum(self, signal: np.ndarray, sample_rate: int, 
                           window_type: str = 'hann') -> Tuple[np.ndarray, np.ndarray]:
@@ -277,7 +327,8 @@ class SpectrumAnalyzer:
     def plot_time_domain(self, signal: np.ndarray, sample_rate: int, 
                         max_duration: Optional[float] = None,
                         save_path: Optional[str] = None,
-                        show_plot: bool = False) -> None:
+                        show_plot: bool = False,
+                        subdir: str = None) -> None:
         """
         绘制时域波形图
         
@@ -325,7 +376,7 @@ class SpectrumAnalyzer:
         plt.tight_layout()
         
         if save_path:
-            full_save_path = self._get_output_path(save_path) if not os.path.dirname(save_path) else save_path
+            full_save_path = self._get_output_path(save_path, subdir) if not os.path.dirname(save_path) else save_path
             plt.savefig(full_save_path, dpi=300, bbox_inches='tight')
             print(f"✅ 时域图已保存: {full_save_path}")
         
@@ -398,7 +449,8 @@ class SpectrumAnalyzer:
     def plot_phase_spectrum(self, frequencies: np.ndarray, phase_deg: np.ndarray,
                            freq_range: Optional[Tuple[float, float]] = None,
                            save_path: Optional[str] = None,
-                           show_plot: bool = False) -> None:
+                           show_plot: bool = False,
+                           subdir: str = None) -> None:
         """
         绘制相位谱图
         
@@ -440,7 +492,7 @@ class SpectrumAnalyzer:
         plt.tight_layout()
         
         if save_path:
-            full_save_path = self._get_output_path(save_path) if not os.path.dirname(save_path) else save_path
+            full_save_path = self._get_output_path(save_path, subdir) if not os.path.dirname(save_path) else save_path
             plt.savefig(full_save_path, dpi=300, bbox_inches='tight')
             print(f"✅ 相位谱图已保存: {full_save_path}")
         
@@ -499,7 +551,8 @@ class SpectrumAnalyzer:
     
     def plot_spectrogram(self, frequencies: np.ndarray, times: np.ndarray, 
                         Sxx: np.ndarray, freq_range: Optional[Tuple[float, float]] = None,
-                        save_path: Optional[str] = None, show_plot: bool = False) -> None:
+                        save_path: Optional[str] = None, show_plot: bool = False,
+                        subdir: str = None) -> None:
         """
         绘制时频谱图
         
@@ -541,7 +594,7 @@ class SpectrumAnalyzer:
         plt.tight_layout()
         
         if save_path:
-            full_save_path = self._get_output_path(save_path) if not os.path.dirname(save_path) else save_path
+            full_save_path = self._get_output_path(save_path, subdir) if not os.path.dirname(save_path) else save_path
             plt.savefig(full_save_path, dpi=300, bbox_inches='tight')
             print(f"✅ 时频谱图已保存: {full_save_path}")
         
@@ -633,7 +686,8 @@ class SpectrumAnalyzer:
                      freq_range: Optional[Tuple[float, float]] = None,
                      spl_range: Optional[Tuple[float, float]] = None,
                      save_path: Optional[str] = None,
-                     show_plot: bool = False) -> None:
+                     show_plot: bool = False,
+                     subdir: str = None) -> None:
         """
         绘制频谱图
         
@@ -699,7 +753,7 @@ class SpectrumAnalyzer:
         
         # 保存图片
         if save_path:
-            full_save_path = self._get_output_path(save_path) if not os.path.dirname(save_path) else save_path
+            full_save_path = self._get_output_path(save_path, subdir) if not os.path.dirname(save_path) else save_path
             plt.savefig(full_save_path, dpi=300, bbox_inches='tight')
             print(f"✅ 频谱图已保存: {full_save_path}")
         
@@ -712,7 +766,8 @@ class SpectrumAnalyzer:
                               freq_range: Optional[Tuple[float, float]] = None,
                               time_range: Optional[float] = None,
                               save_prefix: Optional[str] = None,
-                              show_plot: bool = False) -> None:
+                              show_plot: bool = False,
+                              subdir: str = None) -> None:
         """
         执行全面的综合分析（时域+频域+相位+时频）
         
@@ -853,7 +908,7 @@ class SpectrumAnalyzer:
         # 保存综合分析图
         if save_prefix:
             save_path = f"{save_prefix}_comprehensive_analysis.png"
-            full_save_path = self._get_output_path(save_path)
+            full_save_path = self._get_output_path(save_path, subdir)
             plt.savefig(full_save_path, dpi=300, bbox_inches='tight')
             print(f"✅ 综合分析图已保存: {full_save_path}")
         
@@ -869,19 +924,19 @@ class SpectrumAnalyzer:
             # 时域图
             self.plot_time_domain(signal, sr, max_duration=time_range,
                                  save_path=f"{save_prefix}_time_domain.png",
-                                 show_plot=False)
+                                 show_plot=False, subdir=subdir)
             
             # 相位图  
             self.plot_phase_spectrum(phase_frequencies, phase_deg, 
                                    freq_range=freq_range,
                                    save_path=f"{save_prefix}_phase_domain.png",
-                                   show_plot=False)
+                                   show_plot=False, subdir=subdir)
             
             # 时频图
             self.plot_spectrogram(spec_freqs, spec_times, Sxx,
                                 freq_range=freq_range,
                                 save_path=f"{save_prefix}_spectrogram.png",
-                                show_plot=False)
+                                show_plot=False, subdir=subdir)
         
         print(f"🎉 综合分析完成!")
     
@@ -1323,7 +1378,8 @@ def demo_analysis_mode():
 def analyze_single_wav_file(wav_file_path: str, 
                            max_freq: Optional[float] = 2000,
                            comprehensive: bool = True,
-                           save_prefix: Optional[str] = None) -> Dict:
+                           save_prefix: Optional[str] = None,
+                           auto_subdir: bool = True) -> Dict:
     """
     分析单个WAV文件的完整功能
     
@@ -1337,6 +1393,8 @@ def analyze_single_wav_file(wav_file_path: str,
         是否进行综合分析（时域+频域+相位+时频），默认True
     save_prefix : str, optional
         保存文件前缀，None则自动生成
+    auto_subdir : bool, optional
+        是否自动按数据文件夹创建子目录，默认True
         
     Returns
     -------
@@ -1366,6 +1424,12 @@ def analyze_single_wav_file(wav_file_path: str,
         basename = os.path.splitext(os.path.basename(wav_file_path))[0]
         save_prefix = f"single_{basename}"
     
+    # 自动提取数据文件夹名称
+    subdir = None
+    if auto_subdir:
+        subdir = analyzer._extract_data_folder_name(wav_file_path)
+        print(f"📁 自动识别数据文件夹: {subdir}")
+    
     print(f"\n📊 开始绘制分析图表...")
     
     # 绘制频谱图
@@ -1373,7 +1437,8 @@ def analyze_single_wav_file(wav_file_path: str,
         result, 
         freq_range=(0, max_freq) if max_freq else None,
         save_path=f"{save_prefix}_frequency_spectrum.png",
-        show_plot=False
+        show_plot=False,
+        subdir=subdir
     )
     
     if comprehensive:
@@ -1384,11 +1449,15 @@ def analyze_single_wav_file(wav_file_path: str,
             freq_range=(0, max_freq) if max_freq else None,
             time_range=1.0,  # 时域显示前1秒
             save_prefix=save_prefix,
-            show_plot=False
+            show_plot=False,
+            subdir=subdir
         )
         
         print(f"\n✅ 综合分析完成！")
-        print(f"📁 生成的文件 (保存在 {analyzer.output_dir}/ 目录下):")
+        if subdir:
+            print(f"📁 生成的文件 (保存在 {analyzer.output_dir}/{subdir}/ 目录下):")
+        else:
+            print(f"📁 生成的文件 (保存在 {analyzer.output_dir}/ 目录下):")
         print(f"   {save_prefix}_frequency_spectrum.png - 频谱图")
         print(f"   {save_prefix}_comprehensive_analysis.png - 四合一综合分析图")
         print(f"   {save_prefix}_time_domain.png - 时域分析图")
@@ -1466,7 +1535,7 @@ def example_comprehensive_analysis():
         print(f"❌ 分析失败: {result.get('error', '未知错误')}")
 
 
-def quick_analyze(wav_file_path: str, comprehensive: bool = True) -> Dict:
+def quick_analyze(wav_file_path: str, comprehensive: bool = True, auto_subdir: bool = True) -> Dict:
     """
     快速分析单个WAV文件的便捷函数
     
@@ -1476,6 +1545,8 @@ def quick_analyze(wav_file_path: str, comprehensive: bool = True) -> Dict:
         WAV文件路径
     comprehensive : bool, optional
         是否进行综合分析，默认True
+    auto_subdir : bool, optional
+        是否自动按数据文件夹创建子目录，默认True
         
     Returns
     -------
@@ -1488,12 +1559,15 @@ def quick_analyze(wav_file_path: str, comprehensive: bool = True) -> Dict:
     >>> result = quick_analyze("path/to/audio.wav")
     >>> # 只做频谱分析
     >>> result = quick_analyze("path/to/audio.wav", comprehensive=False)
+    >>> # 不自动创建子目录
+    >>> result = quick_analyze("path/to/audio.wav", auto_subdir=False)
     """
     return analyze_single_wav_file(
         wav_file_path=wav_file_path,
         max_freq=2000,
         comprehensive=comprehensive,
-        save_prefix=None
+        save_prefix=None,
+        auto_subdir=auto_subdir
     )
 
 
