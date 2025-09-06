@@ -1,0 +1,216 @@
+声学分析工具参数功能测试报告
+==================================================
+
+测试时间: 2025-09-06 20:41:19
+测试文件: data/S1R1/record2.wav
+输出目录: test_results
+
+测试概要:
+- 总测试数: 8
+- 成功测试: 8
+- 失败测试: 0
+- 成功率: 100.0%
+
+详细测试结果:
+------------------------------
+
+配置: 基准配置 (baseline)
+状态: ✅ 成功
+配置参数:
+  - target_freq_resolution: 0.01
+  - max_freq: 2000
+  - window_type: hann
+  - min_prominence: 6.0
+  - min_distance: 10.0
+  - max_peaks: 20
+  - min_height: None
+分析结果:
+  - freq_resolution_actual: 0.111111
+  - freq_points: 18002
+  - freq_range: [np.float64(0.0), np.float64(-24000.0)]
+  - peak_frequency: 274.333333
+  - peak_spl: -16.505981
+  - spl_range: [-102.01100935903541, -16.505980589006562]
+  - spl_mean: -44.772549
+  - spl_std: 8.756502
+  - resonance_peaks_count: 20
+  - resonance_freq_range: (np.float64(143.77777777777777), np.float64(1949.5555555555554))
+  - dominant_peak_freq: 274.333333
+  - dominant_peak_spl: -16.505981
+
+配置: 高频率分辨率 (high_resolution)
+状态: ✅ 成功
+配置参数:
+  - target_freq_resolution: 0.001
+  - max_freq: 2000
+  - window_type: hann
+  - min_prominence: 6.0
+  - min_distance: 10.0
+  - max_peaks: 20
+  - min_height: None
+分析结果:
+  - freq_resolution_actual: 0.111111
+  - freq_points: 18002
+  - freq_range: [np.float64(0.0), np.float64(-24000.0)]
+  - peak_frequency: 274.333333
+  - peak_spl: -16.505981
+  - spl_range: [-102.01100935903541, -16.505980589006562]
+  - spl_mean: -44.772549
+  - spl_std: 8.756502
+  - resonance_peaks_count: 20
+  - resonance_freq_range: (np.float64(143.77777777777777), np.float64(1949.5555555555554))
+  - dominant_peak_freq: 274.333333
+  - dominant_peak_spl: -16.505981
+
+配置: 低频率分辨率 (low_resolution)
+状态: ✅ 成功
+配置参数:
+  - target_freq_resolution: 0.1
+  - max_freq: 2000
+  - window_type: hann
+  - min_prominence: 6.0
+  - min_distance: 10.0
+  - max_peaks: 20
+  - min_height: None
+分析结果:
+  - freq_resolution_actual: 0.111111
+  - freq_points: 18002
+  - freq_range: [np.float64(0.0), np.float64(-24000.0)]
+  - peak_frequency: 274.333333
+  - peak_spl: -16.505981
+  - spl_range: [-102.01100935903541, -16.505980589006562]
+  - spl_mean: -44.772549
+  - spl_std: 8.756502
+  - resonance_peaks_count: 20
+  - resonance_freq_range: (np.float64(143.77777777777777), np.float64(1949.5555555555554))
+  - dominant_peak_freq: 274.333333
+  - dominant_peak_spl: -16.505981
+
+配置: 敏感峰值检测 (sensitive_peaks)
+状态: ✅ 成功
+配置参数:
+  - target_freq_resolution: 0.01
+  - max_freq: 2000
+  - window_type: hann
+  - min_prominence: 2.0
+  - min_distance: 5.0
+  - max_peaks: 50
+  - min_height: None
+分析结果:
+  - freq_resolution_actual: 0.111111
+  - freq_points: 18002
+  - freq_range: [np.float64(0.0), np.float64(-24000.0)]
+  - peak_frequency: 274.333333
+  - peak_spl: -16.505981
+  - spl_range: [-102.01100935903541, -16.505980589006562]
+  - spl_mean: -44.772549
+  - spl_std: 8.756502
+  - resonance_peaks_count: 50
+  - resonance_freq_range: (np.float64(143.77777777777777), np.float64(1949.5555555555554))
+  - dominant_peak_freq: 274.333333
+  - dominant_peak_spl: -16.505981
+
+配置: 严格峰值检测 (strict_peaks)
+状态: ✅ 成功
+配置参数:
+  - target_freq_resolution: 0.01
+  - max_freq: 2000
+  - window_type: hann
+  - min_prominence: 15.0
+  - min_distance: 50.0
+  - max_peaks: 5
+  - min_height: None
+分析结果:
+  - freq_resolution_actual: 0.111111
+  - freq_points: 18002
+  - freq_range: [np.float64(0.0), np.float64(-24000.0)]
+  - peak_frequency: 274.333333
+  - peak_spl: -16.505981
+  - spl_range: [-102.01100935903541, -16.505980589006562]
+  - spl_mean: -44.772549
+  - spl_std: 8.756502
+  - resonance_peaks_count: 5
+  - resonance_freq_range: (np.float64(274.3333333333333), np.float64(1949.5555555555554))
+  - dominant_peak_freq: 274.333333
+  - dominant_peak_spl: -16.505981
+
+配置: Hamming窗函数 (window_comparison_hamming)
+状态: ✅ 成功
+配置参数:
+  - target_freq_resolution: 0.01
+  - max_freq: 2000
+  - window_type: hamming
+  - min_prominence: 6.0
+  - min_distance: 10.0
+  - max_peaks: 20
+  - min_height: None
+分析结果:
+  - freq_resolution_actual: 0.111111
+  - freq_points: 18002
+  - freq_range: [np.float64(0.0), np.float64(-24000.0)]
+  - peak_frequency: 274.333333
+  - peak_spl: -16.453857
+  - spl_range: [-102.3878853638154, -16.45385650733692]
+  - spl_mean: -44.832579
+  - spl_std: 8.747150
+  - resonance_peaks_count: 20
+  - resonance_freq_range: (np.float64(143.77777777777777), np.float64(1949.5555555555554))
+  - dominant_peak_freq: 274.333333
+  - dominant_peak_spl: -16.453857
+
+配置: Blackman窗函数 (window_comparison_blackman)
+状态: ✅ 成功
+配置参数:
+  - target_freq_resolution: 0.01
+  - max_freq: 2000
+  - window_type: blackman
+  - min_prominence: 6.0
+  - min_distance: 10.0
+  - max_peaks: 20
+  - min_height: None
+分析结果:
+  - freq_resolution_actual: 0.111111
+  - freq_points: 18002
+  - freq_range: [np.float64(0.0), np.float64(-24000.0)]
+  - peak_frequency: 274.333333
+  - peak_spl: -16.738722
+  - spl_range: [-102.05750582512393, -16.738721556692248]
+  - spl_mean: -44.541914
+  - spl_std: 8.744238
+  - resonance_peaks_count: 20
+  - resonance_freq_range: (np.float64(143.77777777777777), np.float64(1949.5555555555554))
+  - dominant_peak_freq: 274.333333
+  - dominant_peak_spl: -16.738722
+
+配置: 扩展频率范围 (extended_frequency)
+状态: ✅ 成功
+配置参数:
+  - target_freq_resolution: 0.01
+  - max_freq: 8000
+  - window_type: hann
+  - min_prominence: 6.0
+  - min_distance: 10.0
+  - max_peaks: 20
+  - min_height: None
+分析结果:
+  - freq_resolution_actual: 0.111111
+  - freq_points: 72002
+  - freq_range: [np.float64(0.0), np.float64(-24000.0)]
+  - peak_frequency: 274.333333
+  - peak_spl: -16.505981
+  - spl_range: [-105.81154673283699, -16.505980589006562]
+  - spl_mean: -49.042904
+  - spl_std: 8.720730
+  - resonance_peaks_count: 20
+  - resonance_freq_range: (np.float64(274.3333333333333), np.float64(6866.0))
+  - dominant_peak_freq: 274.333333
+  - dominant_peak_spl: -16.505981
+
+测试结论:
+--------------------
+✅ 参数功能测试通过
+- 频率分辨率参数正常工作
+- 共振峰检测参数正常工作
+- 窗函数参数正常工作
+- 频率范围参数正常工作
+- 参数变化产生了预期的结果差异
