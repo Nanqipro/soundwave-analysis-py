@@ -446,6 +446,267 @@ class SpectrumAnalyzer:
         
         return frequencies, phase_deg
     
+    def detect_resonance_peaks(self, frequencies: np.ndarray, spl_db: np.ndarray, 
+                              min_prominence: float = 6.0, 
+                              min_distance: float = 10.0,
+                              min_height: Optional[float] = None,
+                              max_peaks: int = 20) -> Dict:
+        """
+        检测并提取共振峰特征
+        
+        Parameters
+        ----------
+        frequencies : np.ndarray
+            频率数组 (Hz)
+        spl_db : np.ndarray
+            声压级数组 (dB SPL)
+        min_prominence : float, optional
+            最小峰值突出度 (dB)，默认6.0dB
+        min_distance : float, optional
+            相邻峰值间最小频率间隔 (Hz)，默认10.0Hz
+        min_height : float, optional
+            峰值最小高度 (dB SPL)，None表示自动计算
+        max_peaks : int, optional
+            最大检测峰值数量，默认20
+            
+        Returns
+        -------
+        Dict
+            包含共振峰信息的字典
+            
+        Notes
+        -----
+        该方法识别频谱中显著的共振峰，这些峰值代表建筑结构
+        最容易发生共振并对声音产生放大效应的频率点。
+        """
+        from scipy.signal import find_peaks
+        
+        # 计算频率分辨率
+        freq_resolution = frequencies[1] - frequencies[0]
+        
+        # 转换距离参数为索引间隔
+        min_distance_idx = max(1, int(min_distance / freq_resolution))
+        
+        # 自动计算最小高度阈值
+        if min_height is None:
+            # 使用中位数 + 1.5倍标准差作为阈值
+            min_height = np.median(spl_db) + 1.5 * np.std(spl_db)
+        
+        # 检测峰值
+        peak_indices, peak_properties = find_peaks(
+            spl_db,
+            height=min_height,           # 最小高度
+            prominence=min_prominence,   # 最小突出度  
+            distance=min_distance_idx    # 最小距离
+        )
+        
+        # 限制峰值数量
+        if len(peak_indices) > max_peaks:
+            # 按突出度排序，保留最显著的峰值
+            prominences = peak_properties['prominences']
+            sorted_indices = np.argsort(prominences)[::-1]
+            selected_indices = sorted_indices[:max_peaks]
+            peak_indices = peak_indices[selected_indices]
+            # 同时更新突出度数组
+            peak_properties['prominences'] = peak_properties['prominences'][selected_indices]
+            # 重新按频率排序
+            freq_sort_idx = np.argsort(peak_indices)
+            peak_indices = peak_indices[freq_sort_idx]
+            peak_properties['prominences'] = peak_properties['prominences'][freq_sort_idx]
+        
+        # 提取峰值信息
+        resonance_peaks = []
+        for i, peak_idx in enumerate(peak_indices):
+            # 安全地获取突出度值
+            prominence_value = 0
+            try:
+                if i < len(peak_properties['prominences']):
+                    prominence_value = peak_properties['prominences'][i]
+            except (IndexError, KeyError):
+                prominence_value = 0
+            
+            peak_info = {
+                'index': peak_idx,
+                'center_frequency': frequencies[peak_idx],  # 中心频率 (Hz)
+                'peak_spl': spl_db[peak_idx],              # 峰值声压级 (dB)
+                'prominence': prominence_value,             # 峰值突出度 (dB)
+                'rank': i + 1  # 排名（按频率从低到高）
+            }
+            resonance_peaks.append(peak_info)
+        
+        # 计算统计信息
+        if resonance_peaks:
+            center_frequencies = [peak['center_frequency'] for peak in resonance_peaks]
+            peak_spls = [peak['peak_spl'] for peak in resonance_peaks]
+            
+            stats = {
+                'total_peaks': len(resonance_peaks),
+                'frequency_range': (min(center_frequencies), max(center_frequencies)),
+                'mean_frequency': np.mean(center_frequencies),
+                'std_frequency': np.std(center_frequencies),
+                'spl_range': (min(peak_spls), max(peak_spls)), 
+                'mean_spl': np.mean(peak_spls),
+                'std_spl': np.std(peak_spls),
+                'dominant_peak': resonance_peaks[np.argmax(peak_spls)]  # 最强峰值
+            }
+        else:
+            stats = {
+                'total_peaks': 0,
+                'frequency_range': (0, 0),
+                'mean_frequency': 0,
+                'std_frequency': 0,
+                'spl_range': (0, 0),
+                'mean_spl': 0,
+                'std_spl': 0,
+                'dominant_peak': None
+            }
+        
+        result = {
+            'resonance_peaks': resonance_peaks,
+            'statistics': stats,
+            'detection_parameters': {
+                'min_prominence': min_prominence,
+                'min_distance': min_distance,
+                'min_height': min_height,
+                'max_peaks': max_peaks
+            }
+        }
+        
+        print(f"\n🎯 共振峰检测结果:")
+        print(f"   检测到 {stats['total_peaks']} 个显著共振峰")
+        if stats['total_peaks'] > 0:
+            print(f"   频率范围: {stats['frequency_range'][0]:.1f} - {stats['frequency_range'][1]:.1f} Hz")
+            print(f"   声压级范围: {stats['spl_range'][0]:.1f} - {stats['spl_range'][1]:.1f} dB SPL")
+            if stats['dominant_peak']:
+                print(f"   主导峰值: {stats['dominant_peak']['center_frequency']:.2f} Hz, {stats['dominant_peak']['peak_spl']:.1f} dB")
+        
+        return result
+    
+    def plot_resonance_peaks(self, frequencies: np.ndarray, spl_db: np.ndarray,
+                           resonance_result: Dict,
+                           freq_range: Optional[Tuple[float, float]] = None,
+                           save_path: Optional[str] = None,
+                           show_plot: bool = False,
+                           subdir: str = None) -> None:
+        """
+        绘制共振峰分析图
+        
+        Parameters
+        ----------
+        frequencies : np.ndarray
+            频率数组
+        spl_db : np.ndarray 
+            声压级数组
+        resonance_result : Dict
+            共振峰检测结果
+        freq_range : Tuple[float, float], optional
+            频率显示范围
+        save_path : str, optional
+            保存路径
+        show_plot : bool, optional
+            是否显示图片
+        subdir : str, optional
+            子目录名
+        """
+        plt.figure(figsize=(16, 10))
+        
+        # 主频谱图
+        plt.subplot(2, 2, (1, 2))  # 占据上方两个位置
+        
+        # 绘制频谱曲线
+        plt.plot(frequencies, spl_db, 'b-', linewidth=1.0, alpha=0.7, label='Frequency Spectrum')
+        
+        # 标记所有共振峰
+        resonance_peaks = resonance_result['resonance_peaks']
+        if resonance_peaks:
+            peak_freqs = [peak['center_frequency'] for peak in resonance_peaks]
+            peak_spls = [peak['peak_spl'] for peak in resonance_peaks]
+            
+            # 绘制峰值点
+            plt.scatter(peak_freqs, peak_spls, c='red', s=80, 
+                       marker='o', edgecolors='darkred', linewidth=2,
+                       label=f'Resonance Peaks ({len(resonance_peaks)})', zorder=5)
+            
+            # 标注前5个最显著的峰值
+            sorted_peaks = sorted(resonance_peaks, key=lambda x: x['peak_spl'], reverse=True)
+            for i, peak in enumerate(sorted_peaks[:5]):
+                plt.annotate(
+                    f"{peak['center_frequency']:.1f}Hz\n{peak['peak_spl']:.1f}dB",
+                    xy=(peak['center_frequency'], peak['peak_spl']),
+                    xytext=(10, 20),
+                    textcoords='offset points',
+                    fontsize=9,
+                    ha='left',
+                    bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.7),
+                    arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=0.1', color='red')
+                )
+        
+        plt.xlabel('Frequency (Hz)', fontsize=12, fontfamily='Times New Roman')
+        plt.ylabel('Sound Pressure Level (dB SPL)', fontsize=12, fontfamily='Times New Roman')
+        plt.title('Resonance Peaks Analysis', fontsize=14, fontweight='bold', fontfamily='Times New Roman')
+        
+        if freq_range:
+            plt.xlim(freq_range)
+        else:
+            plt.xlim([0, frequencies[-1]])
+        
+        plt.grid(True, alpha=0.3)
+        plt.legend(fontsize=10)
+        
+        # 峰值分布直方图
+        plt.subplot(2, 2, 3)
+        if resonance_peaks:
+            peak_freqs = [peak['center_frequency'] for peak in resonance_peaks]
+            plt.hist(peak_freqs, bins=min(10, len(peak_freqs)), 
+                    alpha=0.7, color='skyblue', edgecolor='navy')
+            plt.xlabel('Frequency (Hz)', fontsize=10, fontfamily='Times New Roman')
+            plt.ylabel('Number of Peaks', fontsize=10, fontfamily='Times New Roman')
+            plt.title('Peak Frequency Distribution', fontsize=12, fontfamily='Times New Roman')
+            plt.grid(True, alpha=0.3)
+        else:
+            plt.text(0.5, 0.5, 'No Peaks Detected', 
+                    transform=plt.gca().transAxes, ha='center', va='center',
+                    fontsize=12, color='gray')
+            plt.title('Peak Frequency Distribution', fontsize=12, fontfamily='Times New Roman')
+        
+        # 峰值强度分析
+        plt.subplot(2, 2, 4)
+        if resonance_peaks:
+            peak_spls = [peak['peak_spl'] for peak in resonance_peaks]
+            peak_freqs = [peak['center_frequency'] for peak in resonance_peaks]
+            
+            # 气泡图：频率 vs 声压级，气泡大小表示重要性
+            sizes = [(spl - min(peak_spls) + 1) * 50 for spl in peak_spls]
+            scatter = plt.scatter(peak_freqs, peak_spls, s=sizes, 
+                                alpha=0.6, c=peak_spls, cmap='viridis')
+            
+            # 添加颜色条
+            cbar = plt.colorbar(scatter)
+            cbar.set_label('SPL (dB)', fontsize=9)
+            
+            plt.xlabel('Frequency (Hz)', fontsize=10, fontfamily='Times New Roman')
+            plt.ylabel('Peak SPL (dB)', fontsize=10, fontfamily='Times New Roman')
+            plt.title('Peak Intensity vs Frequency', fontsize=12, fontfamily='Times New Roman')
+            plt.grid(True, alpha=0.3)
+        else:
+            plt.text(0.5, 0.5, 'No Peaks Detected', 
+                    transform=plt.gca().transAxes, ha='center', va='center',
+                    fontsize=12, color='gray')
+            plt.title('Peak Intensity vs Frequency', fontsize=12, fontfamily='Times New Roman')
+        
+        plt.tight_layout()
+        
+        # 保存图片
+        if save_path:
+            full_save_path = self._get_output_path(save_path, subdir) if not os.path.dirname(save_path) else save_path
+            plt.savefig(full_save_path, dpi=300, bbox_inches='tight')
+            print(f"✅ 共振峰分析图已保存: {full_save_path}")
+        
+        if show_plot:
+            plt.show()
+        else:
+            plt.close()
+    
     def plot_phase_spectrum(self, frequencies: np.ndarray, phase_deg: np.ndarray,
                            freq_range: Optional[Tuple[float, float]] = None,
                            save_path: Optional[str] = None,
@@ -659,6 +920,14 @@ class SpectrumAnalyzer:
             print(f"   峰值频率: {peak_freq:.2f} Hz")
             print(f"   峰值声压级: {peak_spl:.1f} dB SPL")
             
+            # 检测共振峰
+            resonance_result = self.detect_resonance_peaks(
+                frequencies, spl_db,
+                min_prominence=6.0,    # 6dB突出度阈值
+                min_distance=10.0,     # 10Hz最小间隔
+                max_peaks=15           # 最多15个峰值
+            )
+            
             return {
                 'file_path': wav_file_path,
                 'filename': filename,
@@ -670,6 +939,7 @@ class SpectrumAnalyzer:
                 'spl_db': spl_db,
                 'peak_frequency': peak_freq,
                 'peak_spl': peak_spl,
+                'resonance_peaks': resonance_result,  # 添加共振峰检测结果
                 'success': True
             }
             
@@ -937,6 +1207,15 @@ class SpectrumAnalyzer:
                                 freq_range=freq_range,
                                 save_path=f"{save_prefix}_spectrogram.png",
                                 show_plot=False, subdir=subdir)
+            
+            # 共振峰分析图
+            if 'resonance_peaks' in analysis_result and analysis_result['resonance_peaks']:
+                self.plot_resonance_peaks(
+                    frequencies, spl_db, analysis_result['resonance_peaks'],
+                    freq_range=freq_range,
+                    save_path=f"{save_prefix}_resonance_peaks.png",
+                    show_plot=False, subdir=subdir
+                )
         
         print(f"🎉 综合分析完成!")
     
@@ -1441,6 +1720,16 @@ def analyze_single_wav_file(wav_file_path: str,
         subdir=subdir
     )
     
+    # 绘制共振峰分析图
+    if 'resonance_peaks' in result and result['resonance_peaks']:
+        analyzer.plot_resonance_peaks(
+            result['frequencies'], result['spl_db'], result['resonance_peaks'],
+            freq_range=(0, max_freq) if max_freq else None,
+            save_path=f"{save_prefix}_resonance_peaks.png",
+            show_plot=False,
+            subdir=subdir
+        )
+    
     if comprehensive:
         # 执行综合分析
         print(f"🔍 执行综合分析...")
@@ -1463,10 +1752,14 @@ def analyze_single_wav_file(wav_file_path: str,
         print(f"   {save_prefix}_time_domain.png - 时域分析图")
         print(f"   {save_prefix}_phase_domain.png - 相位谱图")
         print(f"   {save_prefix}_spectrogram.png - 时频谱图")
+        if 'resonance_peaks' in result and result['resonance_peaks']:
+            print(f"   {save_prefix}_resonance_peaks.png - 共振峰分析图")
     else:
         print(f"\n✅ 频谱分析完成！")
         print(f"📁 生成的文件:")
         print(f"   {save_prefix}_frequency_spectrum.png - 频谱图")
+        if 'resonance_peaks' in result and result['resonance_peaks']:
+            print(f"   {save_prefix}_resonance_peaks.png - 共振峰分析图")
     
     # 显示关键分析结果
     print(f"\n🔍 分析结果摘要:")
@@ -1476,6 +1769,19 @@ def analyze_single_wav_file(wav_file_path: str,
     print(f"   峰值声压级: {result['peak_spl']:.1f} dB SPL")
     print(f"   频率范围: {result['frequencies'][0]:.3f} - {result['frequencies'][-1]:.1f} Hz")
     print(f"   频率分辨率: {result['frequencies'][1] - result['frequencies'][0]:.4f} Hz")
+    
+    # 显示共振峰统计信息
+    if 'resonance_peaks' in result and result['resonance_peaks']:
+        resonance_stats = result['resonance_peaks']['statistics']
+        print(f"\n🎯 共振峰特征提取:")
+        print(f"   检测到共振峰: {resonance_stats['total_peaks']} 个")
+        if resonance_stats['total_peaks'] > 0:
+            print(f"   频率分布: {resonance_stats['frequency_range'][0]:.1f} - {resonance_stats['frequency_range'][1]:.1f} Hz")
+            print(f"   声压级分布: {resonance_stats['spl_range'][0]:.1f} - {resonance_stats['spl_range'][1]:.1f} dB SPL")
+            print(f"   平均频率: {resonance_stats['mean_frequency']:.1f} Hz")
+            if resonance_stats['dominant_peak']:
+                dominant = resonance_stats['dominant_peak']
+                print(f"   主导共振峰: {dominant['center_frequency']:.1f} Hz, {dominant['peak_spl']:.1f} dB SPL")
     
     return result
 
@@ -1571,6 +1877,97 @@ def quick_analyze(wav_file_path: str, comprehensive: bool = True, auto_subdir: b
     )
 
 
+def analyze_resonance_peaks_only(wav_file_path: str, 
+                                min_prominence: float = 6.0,
+                                min_distance: float = 10.0,
+                                max_freq: float = 2000,
+                                save_prefix: Optional[str] = None) -> Dict:
+    """
+    专门进行共振峰分析的便捷函数
+    
+    Parameters
+    ----------
+    wav_file_path : str
+        WAV文件路径
+    min_prominence : float, optional
+        最小峰值突出度 (dB)，默认6.0dB
+    min_distance : float, optional
+        相邻峰值间最小频率间隔 (Hz)，默认10.0Hz
+    max_freq : float, optional
+        最大分析频率 (Hz)，默认2000Hz
+    save_prefix : str, optional
+        保存文件前缀，None则自动生成
+        
+    Returns
+    -------
+    Dict
+        包含详细共振峰信息的分析结果
+        
+    Examples
+    --------
+    >>> # 基本共振峰分析
+    >>> result = analyze_resonance_peaks_only("data/S1R1/record1.wav")
+    >>> # 自定义参数的共振峰分析
+    >>> result = analyze_resonance_peaks_only("data/S1R1/record1.wav", 
+    ...                                      min_prominence=8.0, 
+    ...                                      min_distance=15.0)
+    """
+    print("🎯 专门共振峰分析模式")
+    print("=" * 50)
+    
+    # 创建分析器
+    analyzer = SpectrumAnalyzer(target_freq_resolution=0.01)
+    
+    # 基础频谱分析
+    result = analyzer.analyze_wav_file(wav_file_path, max_freq)
+    
+    if not result['success']:
+        return result
+    
+    # 自动生成保存前缀
+    if save_prefix is None:
+        basename = os.path.splitext(os.path.basename(wav_file_path))[0]
+        save_prefix = f"resonance_{basename}"
+    
+    # 提取数据文件夹名称
+    subdir = analyzer._extract_data_folder_name(wav_file_path)
+    
+    # 重新进行共振峰检测（使用自定义参数）
+    resonance_result = analyzer.detect_resonance_peaks(
+        result['frequencies'], result['spl_db'],
+        min_prominence=min_prominence,
+        min_distance=min_distance,
+        max_peaks=20
+    )
+    
+    # 更新结果
+    result['resonance_peaks'] = resonance_result
+    
+    # 绘制共振峰分析图
+    analyzer.plot_resonance_peaks(
+        result['frequencies'], result['spl_db'], resonance_result,
+        freq_range=(0, max_freq),
+        save_path=f"{save_prefix}_analysis.png",
+        show_plot=False,
+        subdir=subdir
+    )
+    
+    # 输出详细的共振峰信息
+    print(f"\n🎯 共振峰详细信息:")
+    resonance_peaks = resonance_result['resonance_peaks']
+    if resonance_peaks:
+        print(f"{'排名':<4} {'中心频率(Hz)':<12} {'声压级(dB)':<12} {'突出度(dB)':<12}")
+        print("-" * 50)
+        for peak in resonance_peaks:
+            print(f"{peak['rank']:<4} {peak['center_frequency']:<12.2f} "
+                  f"{peak['peak_spl']:<12.1f} {peak['prominence']:<12.1f}")
+    
+    print(f"\n✅ 共振峰分析完成！")
+    print(f"📁 生成文件: {save_prefix}_analysis.png")
+    
+    return result
+
+
 if __name__ == "__main__":
     main()
     
@@ -1590,5 +1987,11 @@ if __name__ == "__main__":
     #                                   comprehensive=True,
     #                                   save_prefix="my_analysis")
     #
-    # 4. 运行综合分析演示:
+    # 4. 专门共振峰分析（编程方式）:
+    #    from wav_to_spectrum_analyzer import analyze_resonance_peaks_only
+    #    result = analyze_resonance_peaks_only("path/to/your/audio.wav",
+    #                                         min_prominence=6.0,
+    #                                         min_distance=10.0)
+    #
+    # 5. 运行综合分析演示:
     #    example_comprehensive_analysis()
