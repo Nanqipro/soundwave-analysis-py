@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-声学分析Web界面启动脚本
-=====================
+声学分析工具启动脚本
+===================
 
-快速启动Streamlit Web界面的便捷脚本
+简约版声学分析工具快速启动脚本
 
 作者：nanqipro
 """
@@ -12,11 +12,17 @@
 import os
 import sys
 import subprocess
-import webbrowser
 from pathlib import Path
 
 def check_dependencies():
-    """检查依赖包是否已安装"""
+    """
+    检查依赖包是否已安装
+    
+    Returns
+    -------
+    list
+        缺失的依赖包列表
+    """
     required_packages = [
         'streamlit',
         'numpy', 
@@ -43,7 +49,14 @@ def check_dependencies():
     return missing_packages
 
 def install_dependencies():
-    """安装缺失的依赖包"""
+    """
+    安装缺失的依赖包
+    
+    Returns
+    -------
+    bool
+        安装是否成功
+    """
     print("🔧 正在安装缺失的依赖包...")
     
     try:
@@ -58,8 +71,8 @@ def install_dependencies():
 
 def start_streamlit():
     """启动Streamlit应用"""
-    print("🚀 正在启动声学分析Web界面...")
-    print("📱 界面将在浏览器中自动打开")
+    print("🚀 正在启动声学分析工具...")
+    print("📱 界面将在浏览器中自动打开 http://localhost:8501")
     print("🛑 按 Ctrl+C 停止服务")
     print("-" * 50)
     
@@ -79,14 +92,13 @@ def start_streamlit():
 
 def main():
     """主函数"""
-    print("🎵 声学信号分析Web界面启动器")
+    print("🎵 简约版声学分析工具启动器")
     print("=" * 50)
     
-    # 检查当前目录
+    # 检查核心文件
     current_dir = Path.cwd()
     streamlit_app = current_dir / "streamlit_app.py"
     wav_analyzer = current_dir / "wav_to_spectrum_analyzer.py"
-    requirements_file = current_dir / "requirements_web.txt"
     
     if not streamlit_app.exists():
         print(f"❌ 未找到 streamlit_app.py 文件")
@@ -105,21 +117,10 @@ def main():
     
     if missing_deps:
         print(f"⚠️  检测到缺失的依赖包: {', '.join(missing_deps)}")
+        print("正在自动安装依赖包...")
         
-        if requirements_file.exists():
-            response = input("是否自动安装依赖包? (y/n): ").lower().strip()
-            if response in ['y', 'yes', '是']:
-                if not install_dependencies():
-                    print("❌ 依赖安装失败，请手动安装")
-                    return
-            else:
-                print("💡 请手动安装依赖包:")
-                print(f"   pip install -r requirements_web.txt")
-                return
-        else:
-            print("💡 请手动安装依赖包:")
-            for pkg in missing_deps:
-                print(f"   pip install {pkg}")
+        if not install_dependencies():
+            print("❌ 依赖安装失败，请手动运行: pip install -r requirements_web.txt")
             return
     else:
         print("✅ 依赖包检查完成")
