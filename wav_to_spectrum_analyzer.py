@@ -1222,7 +1222,7 @@ class SpectrumAnalyzer:
     def batch_analyze_directory(self, data_dir: str = "data", 
                                max_freq: Optional[float] = 2000,
                                plot_individual: bool = True,
-                               plot_comparison: bool = True,
+                               plot_comparison: bool = False,
                                comprehensive_analysis: bool = False,
                                time_range: Optional[float] = 1.0) -> Dict[str, List[Dict]]:
         """
@@ -1237,7 +1237,7 @@ class SpectrumAnalyzer:
         plot_individual : bool, optional
             是否绘制单独的频谱图
         plot_comparison : bool, optional
-            是否绘制对比图
+            是否绘制对比图，默认False（已禁用）
         comprehensive_analysis : bool, optional
             是否进行综合分析（时域+频域+相位+时频），默认False
         time_range : float, optional
@@ -1283,7 +1283,18 @@ class SpectrumAnalyzer:
                     self.plot_spectrum(result, 
                                      freq_range=(0, max_freq),
                                      save_path=save_name,
-                                     show_plot=False)
+                                     show_plot=False,
+                                     subdir=subdir)
+                    
+                    # 绘制共振峰分析图
+                    if 'resonance_peaks' in result and result['resonance_peaks']:
+                        self.plot_resonance_peaks(
+                            result['frequencies'], result['spl_db'], result['resonance_peaks'],
+                            freq_range=(0, max_freq) if max_freq else None,
+                            save_path=f"{subdir}_{result['filename'][:-4]}_resonance_peaks.png",
+                            show_plot=False,
+                            subdir=subdir
+                        )
                 
                 # 执行综合分析
                 if comprehensive_analysis and result['success']:
@@ -1293,7 +1304,8 @@ class SpectrumAnalyzer:
                         freq_range=(0, max_freq) if max_freq else None,
                         time_range=time_range,
                         save_prefix=save_prefix,
-                        show_plot=False
+                        show_plot=False,
+                        subdir=subdir
                     )
             
             all_results[subdir] = subdir_results
@@ -1519,7 +1531,7 @@ def batch_analysis_mode():
         data_dir="data",
         max_freq=2000,  # 分析0-2000Hz范围
         plot_individual=True,   # 绘制单独频谱图
-        plot_comparison=True,    # 绘制对比图
+        plot_comparison=False,   # 不绘制对比图
         comprehensive_analysis=False,  # 综合分析（时域+频域+相位+时频）
         time_range=1.0  # 时域显示1秒
     )
@@ -1534,9 +1546,9 @@ def batch_analysis_mode():
     print(f"✅ 成功分析: {successful_files} 个")
     print(f"📈 成功率: {successful_files/total_files*100:.1f}%")
     
-    print(f"\n📁 生成的文件 (保存在 ana_res/ 目录下):")
-    print(f"   *_frequency_domain.png - 各文件的频谱图")
-    print(f"   data_analysis_comparison.png - 对比分析图")
+    print(f"\n📁 生成的文件 (按数据文件夹分别保存在 ana_res/ 目录下):")
+    print(f"   各子目录/*_frequency_domain.png - 频谱图")
+    print(f"   各子目录/*_resonance_peaks.png - 共振峰分析图")
 
 
 def single_file_analysis_mode():
